@@ -40,9 +40,9 @@ The single most important phase. Establishes buffers-as-truth + the sandbox rend
 
 ## Phase 2 — Elements panel (markup projection)
 
-- [ ] **2.1 Element tree UI.** Collapsible "Elements" tree from the markup AST (defs excluded), treating containers as frames.
+- [x] **2.1 Element tree UI.** — Collapsible tree from parseMarkup (defs excluded), tag + #id/.class hints, disclosure triangles; verified in browser.
   - Done when: tree matches the sample markup and expands/collapses.
-- [ ] **2.2 Shared selection store.** `state/selection` with `ElementRef`.
+- [x] **2.2 Shared selection store.** — `state/selectionStore` with ElementRef; tree rows select/highlight via the shared store.
 - [ ] **2.3 Selection sync.** Click in tree → highlight on canvas (overlay in iframe); click on canvas → highlight in tree.
   - Done when: selection is bidirectional and stable across re-parses.
 

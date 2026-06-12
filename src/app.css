@@ -175,3 +175,54 @@ body {
   background: var(--panel-border);
   color: var(--text);
 }
+
+.tree {
+  padding: 6px 0;
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  cursor: default;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.tree-row:hover {
+  background: #2e2e30;
+}
+
+.tree-row.selected {
+  background: #173a5e;
+}
+
+.disclosure,
+.disclosure-spacer {
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.disclosure {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.disclosure.open {
+  transform: rotate(90deg);
+}
+
+.tree-tag {
+  color: var(--text);
+}
+
+.tree-hint {
+  color: var(--text-dim);
+}

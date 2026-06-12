@@ -9,7 +9,7 @@ Legend: each step lists a **Goal**, **Deliverable**, and **Done when** (acceptan
 ## Phase 0 — Scaffold & docs ✅ (docs done)
 
 - [x] **0.1 Documentation.** This `docs/` set + `README.md` + `CLAUDE.md`.
-- [ ] **0.2 Project scaffold.**
+- [x] **0.2 Project scaffold.** — Vite + React 18 + TS, ESLint 9 + Prettier, Vitest + RTL, static 3-panel + timeline shell; lint/test/build green, dev server verified.
   - Goal: a runnable empty app.
   - Deliverable: Vite + React + TS project; ESLint + Prettier; Vitest configured; `npm run dev` serves a blank 3-panel + timeline layout shell (static, no logic); folder structure per [`architecture.md`](architecture.md).
   - Done when: `npm run dev` shows the empty Figma-like frame; `npm run lint` and `npm test` pass (with one trivial test).

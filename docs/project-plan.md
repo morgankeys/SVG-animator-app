@@ -20,7 +20,7 @@ Legend: each step lists a **Goal**, **Deliverable**, and **Done when** (acceptan
 
 The single most important phase. Establishes buffers-as-truth + the sandbox renderer.
 
-- [ ] **1.1 Document store.**
+- [x] **1.1 Document store.** — `model/document.ts` (Document type + animated bouncing-ball sample) + Zustand store with markup/styles setters; unit tests cover seed + get/set.
   - Deliverable: `model/document.ts` + Zustand document store holding `markup` and `styles` strings, seeded with a hardcoded sample (a simple animated SVG). Getters/setters only.
   - Done when: store holds + updates buffers; unit tests cover get/set.
 - [ ] **1.2 Markup parsing.**

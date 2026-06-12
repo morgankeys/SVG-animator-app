@@ -26,7 +26,7 @@ The single most important phase. Establishes buffers-as-truth + the sandbox rend
 - [x] **1.2 Markup parsing.** — `model/markup.ts`: parseMarkup → ElementNode tree; refs are element-index paths counting `<defs>` (excluded from tree, indices stay live-DOM-accurate); resolveRef round-trips.
   - Deliverable: `model/markup.ts` — `DOMParser`-based parse of the markup buffer into an `ElementNode` tree (stable `ElementRef`s, `<defs>` excluded). Pure, jsdom-testable.
   - Done when: sample markup parses to expected tree; tests cover nesting + defs exclusion.
-- [ ] **1.3 Style compile + parse.**
+- [x] **1.3 Style compile + parse.** — `model/styles.ts`: compileStyles (sass→CSS, errors surfaced with line/col) + parseStyles/serializeStyles (postcss, byte-exact round-trip; in-place decl mutation preserves raws).
   - Deliverable: `model/styles.ts` — `sass.compileString(scss) → css`, then `postcss.parse(css) → AST`, plus serialize back. `lib/` wrappers for sass/postcss.
   - Done when: SCSS sample compiles; AST round-trips to equivalent CSS; tests pass.
 - [ ] **1.4 Sandbox renderer.**

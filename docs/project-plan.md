@@ -23,7 +23,7 @@ The single most important phase. Establishes buffers-as-truth + the sandbox rend
 - [x] **1.1 Document store.** — `model/document.ts` (Document type + animated bouncing-ball sample) + Zustand store with markup/styles setters; unit tests cover seed + get/set.
   - Deliverable: `model/document.ts` + Zustand document store holding `markup` and `styles` strings, seeded with a hardcoded sample (a simple animated SVG). Getters/setters only.
   - Done when: store holds + updates buffers; unit tests cover get/set.
-- [ ] **1.2 Markup parsing.**
+- [x] **1.2 Markup parsing.** — `model/markup.ts`: parseMarkup → ElementNode tree; refs are element-index paths counting `<defs>` (excluded from tree, indices stay live-DOM-accurate); resolveRef round-trips.
   - Deliverable: `model/markup.ts` — `DOMParser`-based parse of the markup buffer into an `ElementNode` tree (stable `ElementRef`s, `<defs>` excluded). Pure, jsdom-testable.
   - Done when: sample markup parses to expected tree; tests cover nesting + defs exclusion.
 - [ ] **1.3 Style compile + parse.**

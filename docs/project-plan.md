@@ -60,7 +60,7 @@ The single most important phase. Establishes buffers-as-truth + the sandbox rend
 
 ## Phase 4 — Editing via Rules panel (write-back)
 
-- [ ] **4.1 AST mutation helpers.** In-place edit of a Declaration value; create a declaration in a write-target rule (strategy in [`css-engine.md`](css-engine.md)); serialize.
+- [x] **4.1 AST mutation helpers.** — `model/styles.ts`: setDeclarationValue (in-place via cascade-order DeclarationAddress) + createDeclaration (write target = last top-level exact `#id` rule, else append a fresh one; shared selectors/lists/at-rule-nested never targeted; no id → `needs-id` so the caller assigns one in markup first).
 - [ ] **4.2 Wire controls to writes.** Appearance group first (fill/stroke/opacity), then Transform, then Layout. Markup-attribute controls (SVG geometry) write the markup buffer.
   - Done when: changing a control updates the buffer and re-renders; the same edit is reproducible by hand in the Code tab.
 - [ ] **4.3 Undo/redo.** History at the document-store level.

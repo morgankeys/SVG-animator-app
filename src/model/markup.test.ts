@@ -1,4 +1,4 @@
-import { parseMarkup, refToPath, resolveRef } from './markup';
+import { parseMarkup, refToPath, resolveRef, elementToRef } from './markup';
 import { sampleDocument } from './document';
 
 describe('parseMarkup', () => {
@@ -82,5 +82,32 @@ describe('resolveRef', () => {
     const dom = new DOMParser().parseFromString('<svg></svg>', 'text/html');
     expect(resolveRef(dom.body, '0/5')).toBeNull();
     expect(resolveRef(dom.body, '')).toBeNull();
+  });
+});
+
+describe('elementToRef', () => {
+  it('inverts resolveRef for every node in the sample document', () => {
+    const dom = new DOMParser().parseFromString(sampleDocument().markup, 'text/html');
+    const walk = (nodes: ReturnType<typeof parseMarkup>) =>
+      nodes.forEach((node) => {
+        const el = resolveRef(dom.body, node.ref)!;
+        expect(elementToRef(dom.body, el)).toBe(node.ref);
+        walk(node.children);
+      });
+    walk(parseMarkup(sampleDocument().markup));
+  });
+
+  it('counts a <defs> sibling in the index', () => {
+    const dom = new DOMParser().parseFromString(
+      '<svg><defs></defs><circle id="dot"/></svg>',
+      'text/html',
+    );
+    expect(elementToRef(dom.body, dom.getElementById('dot')!)).toBe('0/1');
+  });
+
+  it('returns null for the root itself and for detached elements', () => {
+    const dom = new DOMParser().parseFromString('<svg></svg>', 'text/html');
+    expect(elementToRef(dom.body, dom.body)).toBeNull();
+    expect(elementToRef(dom.body, dom.createElement('div'))).toBeNull();
   });
 });

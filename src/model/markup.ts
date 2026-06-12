@@ -54,6 +54,24 @@ function projectElement(element: Element, path: number[]): ElementNode {
   };
 }
 
+/** Inverse of resolveRef: compute the ref of a live element under `root`. */
+export function elementToRef(root: ParentNode, element: Element): ElementRef | null {
+  const path: number[] = [];
+  let node: Element = element;
+  while (node !== root) {
+    const parent = node.parentNode;
+    if (!parent) return null;
+    const index = Array.prototype.indexOf.call(parent.children, node);
+    if (index < 0) return null;
+    path.unshift(index);
+    if (parent === root) return path.join('/');
+    // nodeType, not instanceof: iframe nodes belong to another realm's classes.
+    if (parent.nodeType !== Node.ELEMENT_NODE) return null;
+    node = parent as Element;
+  }
+  return null; // the root itself has no ref
+}
+
 export function refToPath(ref: ElementRef): number[] {
   return ref === '' ? [] : ref.split('/').map(Number);
 }

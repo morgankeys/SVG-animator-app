@@ -43,7 +43,7 @@ The single most important phase. Establishes buffers-as-truth + the sandbox rend
 - [x] **2.1 Element tree UI.** — Collapsible tree from parseMarkup (defs excluded), tag + #id/.class hints, disclosure triangles; verified in browser.
   - Done when: tree matches the sample markup and expands/collapses.
 - [x] **2.2 Shared selection store.** — `state/selectionStore` with ElementRef; tree rows select/highlight via the shared store.
-- [ ] **2.3 Selection sync.** Click in tree → highlight on canvas (overlay in iframe); click on canvas → highlight in tree.
+- [x] **2.3 Selection sync.** — Bridge highlight() (data-attr + app-owned style in live DOM only, outline follows animation) + onSelect() (realm-safe click→ref); SandboxFrame rewires on frame load; both directions verified in browser.
   - Done when: selection is bidirectional and stable across re-parses.
 
 ---

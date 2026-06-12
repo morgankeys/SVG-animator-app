@@ -16,6 +16,7 @@ CSS AST (Root → Rule/AtRule → Declaration)   // canonical model for editing
 
 - **SCSS is the authoring source of truth.** CSS is its compiled output.
 - For **MVP (Phases 1–7) we author plain CSS** (SCSS compiles CSS to itself, so the pipeline is identical). The SCSS-specific authoring layer and its round-trip limits land in **Phase 8**.
+- **The editing AST is parsed from the buffer directly** (`parseStyles`), never from sass output — sass reformats, which would destroy the user's formatting on write-back. The compiled CSS exists only to render and (later) to inspect.
 
 ## Resolving what the Rules panel shows (read path)
 

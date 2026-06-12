@@ -53,6 +53,21 @@ docs/       # the specs above
 - **`<defs>` is excluded** from the Elements tree.
 - Commit/push only when asked. If on `main`, branch first. End commit messages with the `Co-Authored-By` trailer.
 
+## Hard-won notes (learned in Phases 1–3; don't relearn)
+
+- **Cross-realm `instanceof` fails for iframe nodes.** Elements inside the sandbox belong to the iframe window's classes. Use `node.nodeType === Node.ELEMENT_NODE`, never `instanceof Element`, when handling sandbox DOM.
+- **Two parses, two purposes.** The renderable CSS comes from `compileStyles` (sass) — sass *reformats* its output, so never treat it as an editing surface. The editing AST (`parseStyles`) parses the buffer directly; PostCSS raws round-trip byte-for-byte and in-place `Declaration.value` mutations preserve all other formatting.
+- **`element.matches()` works on detached `DOMParser` documents** — cascade resolution needs no iframe. The live sandbox element is only needed for `getComputedStyle`/`getAnimations` (fetch it via `sandbox/registry.ts`).
+- **The sandbox reloads on every srcdoc change** and drops its DOM. Anything wired into the frame (listeners, selection highlight) must re-apply on the iframe `load` event. Selection highlight is a `data-app-selected` attribute + one app-owned style tag in the live DOM only — never in the buffers.
+- **ElementRef indices count `<defs>`** (excluded from the projected tree, still occupying its child index) so the same ref resolves against both the parsed buffer and the live sandbox DOM.
+- **Testing:** CodeMirror 6 runs fine in jsdom (no polyfills; assert on real editor content). Reset Zustand stores with `useStore.setState(...)` in `beforeEach`; wrap store mutations that should re-render in `act()`. Pure `model/` tests can build DOM via `new DOMParser()`.
+- **Visual verification:** `.claude/launch.json` defines the `dev` server for the preview tools. `preview_click` can't reach inside the sandbox iframe — use `preview_eval` with `document.querySelector('iframe.sandbox-frame').contentDocument` to interact with rendered elements.
+
+## Workflow
+
+- One plan step per session-chunk; the user says "go" per step or phase. Commit each completed step (checkbox + one-line note in `docs/project-plan.md` goes in the same commit).
+- Work each phase on a branch off `main` (e.g. `phase-4-editing`); merge --ff-only to `main` and delete the branch when the user says the phase batch is done. Remote: `origin` = github.com/morgankeys/SVG-animator-app.
+
 ## Commands
 
 ```

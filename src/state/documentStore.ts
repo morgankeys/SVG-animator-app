@@ -6,12 +6,15 @@ import type { EditResult } from '../model/edit';
 import type { ElementRef } from '../model/markup';
 
 /**
- * Holds the source-of-truth buffers, plus the write-path actions UI controls
- * call (Phase 4.2). Edits are computed by pure model/edit.ts functions; the
- * store only applies the resulting buffers (and reports failures back so the
- * control can surface them).
+ * Holds the source-of-truth buffers, the write-path actions UI controls call
+ * (Phase 4.2), and snapshot-based undo/redo (Phase 4.3, docs/architecture.md).
+ * Every buffer change funnels through one commit, so history covers UI edits
+ * and (later) code edits alike — an undo step restores both buffers at once.
  */
 interface DocumentState extends Document {
+  /** Buffer snapshots behind / ahead of the present (undo / redo stacks). */
+  past: Document[];
+  future: Document[];
   setMarkup: (markup: string) => void;
   setStyles: (styles: string) => void;
   setDocument: (document: Document) => void;
@@ -19,23 +22,61 @@ interface DocumentState extends Document {
   applyStyleEdit: (ref: ElementRef, property: string, value: string) => EditResult;
   /** Write an element attribute (markup buffer). */
   applyAttributeEdit: (ref: ElementRef, attribute: string, value: string) => EditResult;
+  /** Restore the previous/next snapshot. False when the stack is empty. */
+  undo: () => boolean;
+  redo: () => boolean;
 }
 
-export const useDocumentStore = create<DocumentState>((set, get) => ({
-  ...sampleDocument(),
-  setMarkup: (markup) => set({ markup }),
-  setStyles: (styles) => set({ styles }),
-  setDocument: ({ markup, styles }) => set({ markup, styles }),
-  applyStyleEdit: (ref, property, value) => {
-    const { markup, styles } = get();
-    const result = writeStyleDeclaration({ markup, styles }, ref, property, value);
-    if (result.ok) set(result.document);
-    return result;
-  },
-  applyAttributeEdit: (ref, attribute, value) => {
-    const { markup, styles } = get();
-    const result = writeMarkupAttribute({ markup, styles }, ref, attribute, value);
-    if (result.ok) set(result.document);
-    return result;
-  },
-}));
+const HISTORY_LIMIT = 100;
+
+const buffers = ({ markup, styles }: Document): Document => ({ markup, styles });
+
+export const useDocumentStore = create<DocumentState>((set, get) => {
+  /** Apply new buffers, recording the present in the undo stack. No-ops record nothing. */
+  const commit = (next: Document) =>
+    set((s) => {
+      if (next.markup === s.markup && next.styles === s.styles) return s;
+      return {
+        ...next,
+        past: [...s.past.slice(-(HISTORY_LIMIT - 1)), buffers(s)],
+        future: [],
+      };
+    });
+
+  return {
+    ...sampleDocument(),
+    past: [],
+    future: [],
+    setMarkup: (markup) => commit({ markup, styles: get().styles }),
+    setStyles: (styles) => commit({ markup: get().markup, styles }),
+    setDocument: (document) => commit(buffers(document)),
+    applyStyleEdit: (ref, property, value) => {
+      const result = writeStyleDeclaration(buffers(get()), ref, property, value);
+      if (result.ok) commit(result.document);
+      return result;
+    },
+    applyAttributeEdit: (ref, attribute, value) => {
+      const result = writeMarkupAttribute(buffers(get()), ref, attribute, value);
+      if (result.ok) commit(result.document);
+      return result;
+    },
+    undo: () => {
+      if (get().past.length === 0) return false;
+      set((s) => ({
+        ...s.past[s.past.length - 1],
+        past: s.past.slice(0, -1),
+        future: [...s.future, buffers(s)],
+      }));
+      return true;
+    },
+    redo: () => {
+      if (get().future.length === 0) return false;
+      set((s) => ({
+        ...s.future[s.future.length - 1],
+        future: s.future.slice(0, -1),
+        past: [...s.past, buffers(s)],
+      }));
+      return true;
+    },
+  };
+});

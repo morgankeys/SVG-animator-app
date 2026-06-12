@@ -53,14 +53,18 @@ docs/       # the specs above
 - **`<defs>` is excluded** from the Elements tree.
 - Commit/push only when asked. If on `main`, branch first. End commit messages with the `Co-Authored-By` trailer.
 
-## Hard-won notes (learned in Phases 1–3; don't relearn)
+## Hard-won notes (learned in Phases 1–4; don't relearn)
 
 - **Cross-realm `instanceof` fails for iframe nodes.** Elements inside the sandbox belong to the iframe window's classes. Use `node.nodeType === Node.ELEMENT_NODE`, never `instanceof Element`, when handling sandbox DOM.
 - **Two parses, two purposes.** The renderable CSS comes from `compileStyles` (sass) — sass *reformats* its output, so never treat it as an editing surface. The editing AST (`parseStyles`) parses the buffer directly; PostCSS raws round-trip byte-for-byte and in-place `Declaration.value` mutations preserve all other formatting.
 - **`element.matches()` works on detached `DOMParser` documents** — cascade resolution needs no iframe. The live sandbox element is only needed for `getComputedStyle`/`getAnimations` (fetch it via `sandbox/registry.ts`).
 - **The sandbox reloads on every srcdoc change** and drops its DOM. Anything wired into the frame (listeners, selection highlight) must re-apply on the iframe `load` event. Selection highlight is a `data-app-selected` attribute + one app-owned style tag in the live DOM only — never in the buffers.
 - **ElementRef indices count `<defs>`** (excluded from the projected tree, still occupying its child index) so the same ref resolves against both the parsed buffer and the live sandbox DOM.
-- **Testing:** CodeMirror 6 runs fine in jsdom (no polyfills; assert on real editor content). Reset Zustand stores with `useStore.setState(...)` in `beforeEach`; wrap store mutations that should re-render in `act()`. Pure `model/` tests can build DOM via `new DOMParser()`.
+- **Never re-serialize the DOM to write markup.** `innerHTML`/`XMLSerializer` normalize self-closing tags and quoting across the whole buffer. `setMarkupAttribute` (`model/markup.ts`) splices only the element's start-tag text, located by pre-order correspondence between source start tags and the parsed DOM — verified over the whole tag list, returning `null` (→ inline warning, no write) when the parser invents elements (e.g. `<tbody>`).
+- **All buffer writes go through documentStore actions** (`applyStyleEdit`/`applyAttributeEdit`/setters). They share one `commit` that records undo history and clears redo; writing buffers any other way silently bypasses undo. The actions delegate to pure `model/edit.ts` — keep orchestration there, not in components.
+- **`DeclarationAddress` indexing matches cascade walk order** — `ruleIndex` counts every rule `walkRules` visits, *including* `@keyframes` stop blocks, so `EffectiveProperty.source` feeds `setDeclarationValue` directly. Addresses go stale on any buffer change: re-parse and re-resolve, never cache them.
+- **PostCSS infers raws for appended nodes from exemplars in the tree**, so new rules/declarations match the buffer's formatting automatically; only near-empty buffers fall back to postcss defaults (4-space indent, no semicolon).
+- **Testing:** CodeMirror 6 runs fine in jsdom (no polyfills; assert on real editor content). Reset Zustand stores with `useStore.setState(...)` in `beforeEach` (documentStore now needs `past: [], future: []` too); wrap store mutations that should re-render in `act()`. Pure `model/` tests can build DOM via `new DOMParser()`.
 - **Visual verification:** `.claude/launch.json` defines the `dev` server for the preview tools. `preview_click` can't reach inside the sandbox iframe — use `preview_eval` with `document.querySelector('iframe.sandbox-frame').contentDocument` to interact with rendered elements.
 
 ## Workflow

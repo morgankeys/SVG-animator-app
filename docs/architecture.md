@@ -53,7 +53,7 @@ Everything else — the element tree, the resolved styles for the Rules panel, t
 ### Write path (UI → code)
 
 1. A UI control (e.g. opacity slider) requests a change to a specific declaration.
-2. The change is applied as a **mutation on the AST node** (PostCSS for styles, DOM for markup) — *in place*, preserving surrounding formatting/comments.
+2. The change is applied as a **mutation on the AST node** — *in place*, preserving surrounding formatting/comments. PostCSS for styles; for markup, a **targeted text splice of the element's start tag** (re-serializing the DOM would normalize quoting/self-closing syntax across the whole buffer — see `model/markup.ts`).
 3. The mutated AST is serialized back to the buffer string.
 4. The buffer change re-triggers the read path. UI re-projects.
 
@@ -100,9 +100,9 @@ src/
 ## State management
 
 - **Zustand** stores. The document store holds the buffers + derived caches (recomputed via selectors/memoization). Selection and transient UI (active tabs, timeline playhead) live in separate stores.
-- **Undo/redo** is implemented as a history of buffer snapshots (or AST commands) at the document-store level — see project plan Phase 4.
+- **Undo/redo** (Phase 4) is a history of buffer snapshots at the document-store level: every buffer change funnels through one `commit`, so multi-buffer edits undo atomically. New writes must use the store's actions, never raw `set`.
 
 ## Open questions (track in project plan, don't pre-decide here)
 
-- Exact write-target strategy: when the UI creates a *new* declaration, which rule does it land in? (Selected element's most-specific matching rule? A dedicated per-element rule? See [`css-engine.md`](css-engine.md).)
+- ~~Exact write-target strategy~~ — **resolved in Phase 4**: last top-level exact-`#id` rule, else append a fresh one (auto-assigning an id in markup when needed). See "Write-target rule strategy" in [`css-engine.md`](css-engine.md).
 - SCSS round-trip depth: how much SCSS (variables, nesting, mixins) is editable from the UI vs. read-only-with-warning. Phased in Phase 8.

@@ -2,7 +2,7 @@ import { useDocumentStore } from './documentStore';
 import { sampleDocument } from '../model/document';
 
 beforeEach(() => {
-  useDocumentStore.setState(sampleDocument());
+  useDocumentStore.setState({ ...sampleDocument(), past: [], future: [] });
 });
 
 describe('documentStore', () => {
@@ -29,5 +29,85 @@ describe('documentStore', () => {
     useDocumentStore.getState().setDocument({ markup: '<svg/>', styles: 'svg {}' });
     const { markup, styles } = useDocumentStore.getState();
     expect({ markup, styles }).toEqual({ markup: '<svg/>', styles: 'svg {}' });
+  });
+
+  it('applyStyleEdit writes through to the styles buffer', () => {
+    const result = useDocumentStore.getState().applyStyleEdit('0/0/1', 'fill', 'tomato');
+    expect(result.ok).toBe(true);
+    expect(useDocumentStore.getState().styles).toContain('fill: tomato');
+    expect(useDocumentStore.getState().markup).toBe(sampleDocument().markup);
+  });
+
+  it('applyAttributeEdit writes through to the markup buffer', () => {
+    const result = useDocumentStore.getState().applyAttributeEdit('0/0/1', 'cx', '111');
+    expect(result.ok).toBe(true);
+    expect(useDocumentStore.getState().markup).toContain('cx="111"');
+    expect(useDocumentStore.getState().styles).toBe(sampleDocument().styles);
+  });
+
+  it('failed edits leave the buffers untouched and report the reason', () => {
+    const before = sampleDocument();
+    const result = useDocumentStore.getState().applyStyleEdit('0/9', 'fill', 'red');
+    expect(result).toEqual({ ok: false, reason: 'element-not-found' });
+    const { markup, styles } = useDocumentStore.getState();
+    expect({ markup, styles }).toEqual(before);
+  });
+});
+
+describe('documentStore — undo/redo', () => {
+  const current = () => {
+    const { markup, styles } = useDocumentStore.getState();
+    return { markup, styles };
+  };
+
+  it('undo restores the prior buffers; redo reapplies the edit', () => {
+    useDocumentStore.getState().applyStyleEdit('0/0/1', 'fill', 'tomato');
+    const edited = current();
+    expect(useDocumentStore.getState().undo()).toBe(true);
+    expect(current()).toEqual(sampleDocument());
+    expect(useDocumentStore.getState().redo()).toBe(true);
+    expect(current()).toEqual(edited);
+  });
+
+  it('one undo step restores BOTH buffers of a two-buffer edit (id assignment)', () => {
+    useDocumentStore.setState({
+      markup: '<svg><circle cx="1"/></svg>',
+      styles: '',
+      past: [],
+      future: [],
+    });
+    useDocumentStore.getState().applyStyleEdit('0/0', 'fill', 'red');
+    expect(current().markup).toContain('id="circle"');
+    useDocumentStore.getState().undo();
+    expect(current()).toEqual({ markup: '<svg><circle cx="1"/></svg>', styles: '' });
+  });
+
+  it('covers setters too (later code edits go through the same commit)', () => {
+    useDocumentStore.getState().setStyles('#ball { fill: red; }');
+    useDocumentStore.getState().undo();
+    expect(current().styles).toBe(sampleDocument().styles);
+  });
+
+  it('a new edit clears the redo stack', () => {
+    useDocumentStore.getState().setStyles('a {}');
+    useDocumentStore.getState().undo();
+    useDocumentStore.getState().setStyles('b {}');
+    expect(useDocumentStore.getState().redo()).toBe(false);
+    expect(current().styles).toBe('b {}');
+  });
+
+  it('no-op writes record no history', () => {
+    useDocumentStore.getState().setStyles(sampleDocument().styles);
+    expect(useDocumentStore.getState().undo()).toBe(false);
+  });
+
+  it('failed edits record no history', () => {
+    useDocumentStore.getState().applyStyleEdit('0/9', 'fill', 'red');
+    expect(useDocumentStore.getState().undo()).toBe(false);
+  });
+
+  it('history is capped', () => {
+    for (let i = 0; i < 120; i++) useDocumentStore.getState().setStyles(`/* ${i} */`);
+    expect(useDocumentStore.getState().past).toHaveLength(100);
   });
 });

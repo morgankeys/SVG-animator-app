@@ -60,10 +60,10 @@ The single most important phase. Establishes buffers-as-truth + the sandbox rend
 
 ## Phase 4 — Editing via Rules panel (write-back)
 
-- [ ] **4.1 AST mutation helpers.** In-place edit of a Declaration value; create a declaration in a write-target rule (strategy in [`css-engine.md`](css-engine.md)); serialize.
-- [ ] **4.2 Wire controls to writes.** Appearance group first (fill/stroke/opacity), then Transform, then Layout. Markup-attribute controls (SVG geometry) write the markup buffer.
+- [x] **4.1 AST mutation helpers.** — `model/styles.ts`: setDeclarationValue (in-place via cascade-order DeclarationAddress) + createDeclaration (write target = last top-level exact `#id` rule, else append a fresh one; shared selectors/lists/at-rule-nested never targeted; no id → `needs-id` so the caller assigns one in markup first).
+- [x] **4.2 Wire controls to writes.** — Rules rows are committing inputs via documentStore.applyStyleEdit/applyAttributeEdit → pure `model/edit.ts` (mutate winner → create in write-target → auto-assign id in markup when needed); geometry attrs splice only the element's start tag (`setMarkupAttribute`, pre-order tag correspondence, degrades to a warning when ambiguous); unset CSS props show computed placeholder and create on commit; inline winners disabled.
   - Done when: changing a control updates the buffer and re-renders; the same edit is reproducible by hand in the Code tab.
-- [ ] **4.3 Undo/redo.** History at the document-store level.
+- [x] **4.3 Undo/redo.** — Snapshot stacks in documentStore; every buffer change (setters + apply* edits) funnels through one commit (no-ops skipped, capped at 100), so a two-buffer edit undoes atomically; Cmd/Ctrl+Z / Shift+Z in App, ignoring text-editing targets.
   - Done when: undo/redo restores prior buffer state across UI + (later) code edits.
 
 ---

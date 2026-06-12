@@ -1,4 +1,11 @@
-import { parseMarkup, refToPath, resolveRef, elementToRef } from './markup';
+import {
+  parseMarkup,
+  refToPath,
+  resolveRef,
+  elementToRef,
+  setMarkupAttribute,
+  ensureElementId,
+} from './markup';
 import { sampleDocument } from './document';
 
 describe('parseMarkup', () => {
@@ -109,5 +116,82 @@ describe('elementToRef', () => {
     const dom = new DOMParser().parseFromString('<svg></svg>', 'text/html');
     expect(elementToRef(dom.body, dom.body)).toBeNull();
     expect(elementToRef(dom.body, dom.createElement('div'))).toBeNull();
+  });
+});
+
+describe('setMarkupAttribute', () => {
+  it('rewrites only the attribute value; every other byte survives', () => {
+    const markup = sampleDocument().markup;
+    const next = setMarkupAttribute(markup, '0/0/1', 'cx', '123');
+    expect(next).toBe(markup.replace('cx="200"', 'cx="123"'));
+  });
+
+  it('inserts a missing attribute before a self-closing tag end, keeping its spacing', () => {
+    const next = setMarkupAttribute('<svg>\n  <circle cx="1" />\n</svg>', '0/0', 'r', '5');
+    expect(next).toBe('<svg>\n  <circle cx="1" r="5" />\n</svg>');
+  });
+
+  it('inserts into a plain open tag', () => {
+    const next = setMarkupAttribute('<svg><g id="a"><rect/></g></svg>', '0/0', 'fill', 'red');
+    expect(next).toBe('<svg><g id="a" fill="red"><rect/></g></svg>');
+  });
+
+  it('matches attribute names case-insensitively, preserving the written case', () => {
+    const next = setMarkupAttribute('<svg><rect X="1"/></svg>', '0/0', 'x', '9');
+    expect(next).toBe('<svg><rect X="9"/></svg>');
+  });
+
+  it('preserves single quotes and escapes the value for its quote style', () => {
+    const next = setMarkupAttribute("<svg><text aria-label='hi'/></svg>", '0/0', 'aria-label', "it's");
+    expect(next).toBe("<svg><text aria-label='it&#39;s'/></svg>");
+  });
+
+  it('quotes a previously unquoted value', () => {
+    const next = setMarkupAttribute('<svg><rect x=1 y="2"/></svg>', '0/0', 'x', '9');
+    expect(next).toBe('<svg><rect x="9" y="2"/></svg>');
+  });
+
+  it('is not fooled by comments or attribute values containing tags', () => {
+    const markup = '<!-- <circle cx="0"/> --><svg><g data-note="<circle>"><circle cx="1"/></g></svg>';
+    const next = setMarkupAttribute(markup, '0/0/0', 'cx', '7');
+    expect(next).toBe(markup.replace('cx="1"', 'cx="7"'));
+  });
+
+  it('edits the right element among same-tag siblings', () => {
+    const markup = '<svg><circle r="1"/><circle r="2"/><circle r="3"/></svg>';
+    expect(setMarkupAttribute(markup, '0/1', 'r', '9')).toBe(
+      '<svg><circle r="1"/><circle r="9"/><circle r="3"/></svg>',
+    );
+  });
+
+  it('returns null instead of guessing when the parser invents elements', () => {
+    // The HTML parser inserts <tbody>, so source tags and DOM no longer correspond.
+    const markup = '<table><tr><td>x</td></tr></table>';
+    expect(setMarkupAttribute(markup, '0', 'border', '1')).toBeNull();
+  });
+
+  it('returns null for dangling refs', () => {
+    expect(setMarkupAttribute('<svg></svg>', '0/4', 'x', '1')).toBeNull();
+  });
+});
+
+describe('ensureElementId', () => {
+  it('returns the existing id without touching the buffer', () => {
+    const markup = sampleDocument().markup;
+    expect(ensureElementId(markup, '0/0/1')).toEqual({ markup, id: 'ball' });
+  });
+
+  it('assigns a tag-based id and writes it to the buffer', () => {
+    const result = ensureElementId('<svg>\n  <circle cx="1" />\n</svg>', '0/0');
+    expect(result).toEqual({
+      markup: '<svg>\n  <circle cx="1" id="circle" />\n</svg>',
+      id: 'circle',
+    });
+  });
+
+  it('avoids colliding with existing ids', () => {
+    const result = ensureElementId('<svg><g id="circle"/><circle/></svg>', '0/1');
+    expect(result?.id).toBe('circle-2');
+    expect(result?.markup).toContain('<circle id="circle-2"/>');
   });
 });

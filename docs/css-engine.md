@@ -54,11 +54,11 @@ When a control changes a value:
 
 ### Write-target rule strategy
 
-When the UI must create a new declaration, where does it go? Documented default (revisit in Phase 4):
+When the UI must create a new declaration, where does it go? Implemented in Phase 4 (`createDeclaration` in `model/styles.ts`, orchestrated by `model/edit.ts`):
 
-- Prefer the **most-specific matching rule whose selector targets this element uniquely** (e.g. an id selector for the element).
-- If none exists, **create/reuse a per-element rule** keyed by a stable selector (assign the element a stable `id` in markup if needed, then write `#that-id { ... }`).
-- Never silently write into a broad, shared selector (e.g. `circle {}`) — that would surprise the user by restyling siblings. If only a shared rule matches, create a more specific rule instead.
+- The target is the **last top-level rule whose selector is exactly the element's `#id`** — the one rule that can't restyle siblings, at the position where the new declaration wins source-order ties. (If that rule already declares the property, it's updated in place.)
+- If none exists, a fresh `#id` rule is **appended** to the buffer (formatting inferred from the existing tree via PostCSS raws). Elements without an id are first assigned a generated, document-unique, tag-based id in the **markup buffer** (`ensureElementId`) — the one case where a style edit touches both buffers; it undoes as a single history step.
+- Never written into: broad/shared selectors (`circle {}`), selector lists (`#ball, .other` — declarations would apply to both), and rules nested inside at-rules (conditional, e.g. `@media`).
 
 ### Non-round-trippable cases (mark `editable: false`)
 

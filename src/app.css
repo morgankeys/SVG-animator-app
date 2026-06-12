@@ -274,8 +274,34 @@ body {
   text-transform: lowercase;
 }
 
+.rules-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font: inherit;
+}
+
+.rules-input:focus {
+  outline: 1px solid var(--accent);
+}
+
+.rules-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .rules-conflict {
   color: #e9a700;
+  cursor: help;
+  flex-shrink: 0;
+}
+
+.rules-error {
+  color: #e05656;
   cursor: help;
   flex-shrink: 0;
 }

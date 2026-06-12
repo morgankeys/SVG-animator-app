@@ -32,7 +32,7 @@ The single most important phase. Establishes buffers-as-truth + the sandbox rend
 - [x] **1.4 Sandbox renderer.** — `sandbox/`: buildSandboxHtml (style-tag-escape guarded), SandboxFrame (srcdoc iframe, sandbox=allow-same-origin, compile errors as inline banner), bridge stub; bouncing ball verified animating in browser.
   - Deliverable: `sandbox/` iframe component that injects compiled CSS + markup and renders; typed bridge stub. Same-origin srcdoc iframe.
   - Done when: Preview tab shows the sample SVG rendered and animating.
-- [ ] **1.5 Center tabs + read-only Code view.**
+- [x] **1.5 Center tabs + read-only Code view.** — uiStore-driven Preview/Code/Split switching; CodeTab shows consolidated markup+compiled CSS in read-only CodeMirror 6 (one-dark, fold gutter); all three tabs + folding verified in browser.
   - Deliverable: Preview / Code / Split tabs. Code tab shows consolidated markup + compiled CSS in CodeMirror 6, read-only, with collapsible regions + syntax highlighting.
   - Done when: all three tabs work; Code view is highlighted, read-only, collapsible.
 

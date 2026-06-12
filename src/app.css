@@ -94,6 +94,37 @@ body {
 .canvas {
   background: var(--bg);
   padding: 0;
+  display: flex;
+}
+
+.canvas > * {
+  flex: 1;
+  min-width: 0;
+}
+
+.canvas.split > * {
+  flex-basis: 50%;
+}
+
+.canvas.split > :first-child {
+  border-right: 1px solid var(--panel-border);
+}
+
+.code-tab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.code-view {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.code-view .cm-editor {
+  height: 100%;
 }
 
 .sandbox-wrap {

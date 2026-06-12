@@ -29,7 +29,7 @@ The single most important phase. Establishes buffers-as-truth + the sandbox rend
 - [x] **1.3 Style compile + parse.** — `model/styles.ts`: compileStyles (sass→CSS, errors surfaced with line/col) + parseStyles/serializeStyles (postcss, byte-exact round-trip; in-place decl mutation preserves raws).
   - Deliverable: `model/styles.ts` — `sass.compileString(scss) → css`, then `postcss.parse(css) → AST`, plus serialize back. `lib/` wrappers for sass/postcss.
   - Done when: SCSS sample compiles; AST round-trips to equivalent CSS; tests pass.
-- [ ] **1.4 Sandbox renderer.**
+- [x] **1.4 Sandbox renderer.** — `sandbox/`: buildSandboxHtml (style-tag-escape guarded), SandboxFrame (srcdoc iframe, sandbox=allow-same-origin, compile errors as inline banner), bridge stub; bouncing ball verified animating in browser.
   - Deliverable: `sandbox/` iframe component that injects compiled CSS + markup and renders; typed bridge stub. Same-origin srcdoc iframe.
   - Done when: Preview tab shows the sample SVG rendered and animating.
 - [ ] **1.5 Center tabs + read-only Code view.**

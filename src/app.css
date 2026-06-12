@@ -93,6 +93,27 @@ body {
 
 .canvas {
   background: var(--bg);
+  padding: 0;
+}
+
+.sandbox-wrap {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.sandbox-frame {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: white;
+}
+
+.sandbox-error {
+  padding: 6px 12px;
+  background: #5a1d1d;
+  color: #f48771;
+  border-bottom: 1px solid var(--panel-border);
 }
 
 .timeline {

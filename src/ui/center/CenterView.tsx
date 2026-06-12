@@ -1,4 +1,6 @@
-/** Center view: Preview / Code / Split tabs (Phase 1). Static shell for now. */
+import { SandboxFrame } from '../../sandbox/SandboxFrame';
+
+/** Center view: Preview / Code / Split tabs. Tab switching arrives in 1.5. */
 export function CenterView() {
   return (
     <section className="center-view panel">
@@ -13,7 +15,9 @@ export function CenterView() {
           Split
         </button>
       </header>
-      <div className="panel-body canvas placeholder">Canvas appears here (Phase 1)</div>
+      <div className="panel-body canvas">
+        <SandboxFrame />
+      </div>
     </section>
   );
 }

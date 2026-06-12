@@ -4,6 +4,7 @@ import { useSelectionStore } from '../state/selectionStore';
 import { compileStyles } from '../model/styles';
 import { buildSandboxHtml } from './buildHtml';
 import { createBridge } from './bridge';
+import { setSandboxIframe } from './registry';
 
 /**
  * Renders the document buffers in a sandboxed same-origin iframe. The browser
@@ -22,6 +23,11 @@ export function SandboxFrame() {
     () => buildSandboxHtml(markup, compiled.ok ? compiled.css : ''),
     [markup, compiled],
   );
+
+  useEffect(() => {
+    setSandboxIframe(iframeRef.current);
+    return () => setSandboxIframe(null);
+  }, []);
 
   // Selection sync, both directions. srcdoc changes reload the frame and drop
   // its DOM, so everything re-wires on the iframe load event too.

@@ -50,11 +50,11 @@ The single most important phase. Establishes buffers-as-truth + the sandbox rend
 
 ## Phase 3 — Cascade resolution & Rules panel (read-only)
 
-- [ ] **3.1 Cascade engine.** `model/cascade.ts`: given an `ElementRef` + CSS AST + live iframe node, return `EffectiveProperty[]` (winner, computed, source, competing) per [`css-engine.md`](css-engine.md).
+- [x] **3.1 Cascade engine.** — `model/specificity.ts` + `model/cascade.ts`: matches()-delegated matching (works on detached DOMParser docs), importance bands incl. inline styles, selector-list best-match specificity, @keyframes blocks excluded, invalid selectors skipped.
   - Done when: unit tests cover specificity ordering + competing-decl detection.
-- [ ] **3.2 Rules panel (read-only).** Grouped controls (Layout/Transform/Appearance/Effects/Animation) displaying resolved values; inline warning when `competing.length > 0`.
+- [x] **3.2 Rules panel (read-only).** — Grouped rows (markup-owned geometry + CSS groups + Other catch-all), ⚠ for competing decls, "inline" badge for style-attr winners; sandbox registry supplies live element for computed values.
   - Done when: selecting an element shows correct values + warnings; no editing yet.
-- [ ] **3.3 Right-panel Code tab (read-only).** Highlighted SCSS/CSS for context.
+- [x] **3.3 Right-panel Code tab (read-only).** — Rules/Code tabs in uiStore; Code shows the styles buffer in read-only CodeMirror (css mode).
 
 ---
 

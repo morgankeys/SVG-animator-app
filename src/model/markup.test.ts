@@ -7,6 +7,8 @@ import {
   ensureElementId,
   insertAfter,
   insertChild,
+  removeElement,
+  moveElement,
 } from './markup';
 import { sampleDocument } from './document';
 
@@ -242,6 +244,67 @@ describe('insertChild', () => {
 
   it('seeds an empty buffer', () => {
     expect(insertChild('', '', '<rect/>')).toEqual({ markup: '<rect/>\n', ref: '0' });
+  });
+});
+
+describe('removeElement', () => {
+  it('splices out a leaf and its own line, leaving siblings intact', () => {
+    const markup = sampleDocument().markup;
+    const next = removeElement(markup, '0/0/0'); // delete rect#ground
+    expect(next).toBe(markup.replace('\n    <rect id="ground" x="0" y="260" width="400" height="40" />', ''));
+    expect(parseMarkup(next!)[0].children[0].children.map((c) => c.tag)).toEqual(['circle']);
+  });
+
+  it('removes a whole subtree', () => {
+    const next = removeElement(sampleDocument().markup, '0/0'); // delete g#scene + children
+    expect(parseMarkup(next!)[0].children).toHaveLength(0);
+    expect(next).not.toContain('circle');
+  });
+
+  it('removes an inline element without leaving the surrounding line blank', () => {
+    expect(removeElement('<svg><circle/><rect/></svg>', '0/0')).toBe('<svg><rect/></svg>');
+  });
+
+  it('returns null for dangling refs and parser-rewritten markup', () => {
+    expect(removeElement('<svg></svg>', '0/2')).toBeNull();
+    expect(removeElement('<table><tr><td>x</td></tr></table>', '0')).toBeNull();
+  });
+});
+
+describe('moveElement', () => {
+  it('swaps a leaf with its previous sibling (up), preserving separators', () => {
+    const markup = sampleDocument().markup;
+    const result = moveElement(markup, '0/0/1', 'up'); // circle#ball up over rect#ground
+    expect(result!.ref).toBe('0/0/0');
+    expect(parseMarkup(result!.markup)[0].children[0].children.map((c) => c.id)).toEqual([
+      'ball',
+      'ground',
+    ]);
+    // Indentation is preserved (siblings shared it).
+    expect(result!.markup).toContain('    <circle id="ball"');
+    expect(result!.markup).toContain('    <rect id="ground"');
+  });
+
+  it('swaps a leaf with its next sibling (down)', () => {
+    const result = moveElement(sampleDocument().markup, '0/0/0', 'down'); // rect down under circle
+    expect(result!.ref).toBe('0/0/1');
+    expect(parseMarkup(result!.markup)[0].children[0].children.map((c) => c.id)).toEqual([
+      'ball',
+      'ground',
+    ]);
+  });
+
+  it('moves whole subtrees, not just start tags', () => {
+    const markup = '<svg>\n  <circle/>\n  <g><rect/></g>\n</svg>';
+    const result = moveElement(markup, '0/1', 'up'); // g (with child) up over circle
+    expect(result!.ref).toBe('0/0');
+    expect(parseMarkup(result!.markup)[0].children.map((c) => c.tag)).toEqual(['g', 'circle']);
+    expect(parseMarkup(result!.markup)[0].children[0].children.map((c) => c.tag)).toEqual(['rect']);
+  });
+
+  it('returns null at the boundary (no sibling in that direction)', () => {
+    expect(moveElement(sampleDocument().markup, '0/0/0', 'up')).toBeNull();
+    expect(moveElement(sampleDocument().markup, '0/0/1', 'down')).toBeNull();
   });
 });
 

@@ -4,8 +4,16 @@
  * back the new buffer strings. Pure — the document store applies the result.
  */
 import type { Document } from './document';
-import { resolveRef, setMarkupAttribute, ensureElementId, insertAfter, insertChild } from './markup';
-import type { ElementRef } from './markup';
+import {
+  resolveRef,
+  setMarkupAttribute,
+  ensureElementId,
+  insertAfter,
+  insertChild,
+  removeElement,
+  moveElement as moveElementInBuffer,
+} from './markup';
+import type { ElementRef, MoveDirection } from './markup';
 import { createShapeMarkup } from './shapes';
 import type { ShapeKind } from './shapes';
 import { parseStyles, serializeStyles, setDeclarationValue, createDeclaration } from './styles';
@@ -59,6 +67,30 @@ export function insertShape(
     document: { markup: inserted.markup, styles: document.styles },
     ref: inserted.ref,
   };
+}
+
+/** Delete the referenced element (and its subtree) from the markup buffer. */
+export function deleteElement(document: Document, ref: ElementRef): EditResult {
+  if (!resolveRef(parseDom(document.markup), ref)) {
+    return { ok: false, reason: 'element-not-found' };
+  }
+  const markup = removeElement(document.markup, ref);
+  if (markup === null) return { ok: false, reason: 'markup-write-failed' };
+  return { ok: true, document: { markup, styles: document.styles } };
+}
+
+/** Reorder the referenced element among its siblings; returns its new ref. */
+export function moveElement(
+  document: Document,
+  ref: ElementRef,
+  direction: MoveDirection,
+): InsertEditResult {
+  if (!resolveRef(parseDom(document.markup), ref)) {
+    return { ok: false, reason: 'element-not-found' };
+  }
+  const result = moveElementInBuffer(document.markup, ref, direction);
+  if (!result) return { ok: false, reason: 'markup-write-failed' };
+  return { ok: true, document: { markup: result.markup, styles: document.styles }, ref: result.ref };
 }
 
 function isContainer(element: Element): boolean {

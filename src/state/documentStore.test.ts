@@ -81,6 +81,28 @@ describe('documentStore', () => {
     expect(result).toEqual({ ok: false, reason: 'markup-write-failed' });
     expect(useDocumentStore.getState().undo()).toBe(false);
   });
+
+  it('deleteElement removes from markup as one undoable step', () => {
+    const before = sampleDocument().markup;
+    const result = useDocumentStore.getState().deleteElement('0/0/1');
+    expect(result.ok).toBe(true);
+    expect(useDocumentStore.getState().markup).not.toContain('id="ball"');
+    expect(useDocumentStore.getState().undo()).toBe(true);
+    expect(useDocumentStore.getState().markup).toBe(before);
+  });
+
+  it('moveElement reorders markup and returns the new ref', () => {
+    const result = useDocumentStore.getState().moveElement('0/0/0', 'down');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.ref).toBe('0/0/1');
+    expect(useDocumentStore.getState().styles).toBe(sampleDocument().styles);
+  });
+
+  it('a failed structural edit records no history', () => {
+    useDocumentStore.getState().moveElement('0/0/0', 'up'); // boundary → fails
+    expect(useDocumentStore.getState().undo()).toBe(false);
+  });
 });
 
 describe('documentStore — undo/redo', () => {

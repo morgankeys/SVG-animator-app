@@ -289,6 +289,50 @@ body {
   color: var(--text-dim);
 }
 
+.tree-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tree-actions {
+  display: none;
+  gap: 1px;
+  flex-shrink: 0;
+  padding-right: 6px;
+}
+
+.tree-row:hover .tree-actions,
+.tree-row.selected .tree-actions {
+  display: flex;
+}
+
+.tree-action {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 3px;
+  color: var(--text-dim);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tree-action:hover:not(:disabled) {
+  background: var(--panel-border);
+  color: var(--text);
+}
+
+.tree-action:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
 .rules {
   padding: 0;
 }

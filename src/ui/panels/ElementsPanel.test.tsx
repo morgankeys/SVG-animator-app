@@ -3,6 +3,7 @@ import { ElementsPanel } from './ElementsPanel';
 import { useDocumentStore } from '../../state/documentStore';
 import { useSelectionStore } from '../../state/selectionStore';
 import { sampleDocument } from '../../model/document';
+import { parseMarkup } from '../../model/markup';
 
 beforeEach(() => {
   useDocumentStore.setState(sampleDocument());
@@ -74,4 +75,36 @@ describe('ElementsPanel', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Rectangle' }));
     expect(screen.getByRole('alert')).toBeInTheDocument();
   });
+
+  it('deletes an element from the tree and clears a stale selection', () => {
+    render(<ElementsPanel />);
+    fireEvent.click(screen.getByText('#ball'));
+    expect(useSelectionStore.getState().element).toBe('0/0/1');
+    fireEvent.click(screen.getByRole('button', { name: 'Delete circle' }));
+    expect(useDocumentStore.getState().markup).not.toContain('id="ball"');
+    expect(screen.queryByText('#ball')).not.toBeInTheDocument();
+    expect(useSelectionStore.getState().element).toBeNull();
+  });
+
+  it('reorders siblings and follows the selection to the moved element', () => {
+    render(<ElementsPanel />);
+    fireEvent.click(screen.getByText('#ground'));
+    fireEvent.click(screen.getByRole('button', { name: 'Move rect down' }));
+    expect(parseTags()).toEqual(['ball', 'ground']);
+    expect(useSelectionStore.getState().element).toBe('0/0/1'); // selection followed
+  });
+
+  it('disables move buttons at the sibling boundaries', () => {
+    render(<ElementsPanel />);
+    // rect#ground is the first child → can't move up; circle#ball is last → can't move down.
+    expect(screen.getByRole('button', { name: 'Move rect up' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Move circle down' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Move rect down' })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Move circle up' })).not.toBeDisabled();
+  });
 });
+
+/** Ids of the scene group's children in document order, from the live store. */
+function parseTags(): (string | undefined)[] {
+  return parseMarkup(useDocumentStore.getState().markup)[0].children[0].children.map((c) => c.id);
+}

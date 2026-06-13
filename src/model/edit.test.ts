@@ -1,4 +1,10 @@
-import { writeStyleDeclaration, writeMarkupAttribute, insertShape } from './edit';
+import {
+  writeStyleDeclaration,
+  writeMarkupAttribute,
+  insertShape,
+  deleteElement,
+  moveElement,
+} from './edit';
 import { createDocument, sampleDocument } from './document';
 import { parseMarkup } from './markup';
 
@@ -139,5 +145,47 @@ describe('insertShape', () => {
   it('fails cleanly when the buffer tags cannot be located', () => {
     const doc = createDocument('<table><tr><td>x</td></tr></table>', '');
     expect(insertShape(doc, 'rect', '0')).toEqual({ ok: false, reason: 'markup-write-failed' });
+  });
+});
+
+describe('deleteElement', () => {
+  it('removes the element from markup, leaving styles untouched', () => {
+    const doc = sampleDocument();
+    const result = deleteElement(doc, '0/0/1'); // delete circle#ball
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.document.styles).toBe(doc.styles);
+    expect(parseMarkup(result.document.markup)[0].children[0].children.map((c) => c.id)).toEqual([
+      'ground',
+    ]);
+  });
+
+  it('fails cleanly on dangling refs', () => {
+    expect(deleteElement(sampleDocument(), '0/9')).toEqual({
+      ok: false,
+      reason: 'element-not-found',
+    });
+  });
+});
+
+describe('moveElement', () => {
+  it('reorders siblings and returns the new ref', () => {
+    const doc = sampleDocument();
+    const result = moveElement(doc, '0/0/0', 'down');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.ref).toBe('0/0/1');
+    expect(result.document.styles).toBe(doc.styles);
+    expect(parseMarkup(result.document.markup)[0].children[0].children.map((c) => c.id)).toEqual([
+      'ball',
+      'ground',
+    ]);
+  });
+
+  it('fails cleanly at a boundary', () => {
+    expect(moveElement(sampleDocument(), '0/0/0', 'up')).toEqual({
+      ok: false,
+      reason: 'markup-write-failed',
+    });
   });
 });

@@ -403,6 +403,63 @@ function insertTopLevel(markup: string, elementText: string): InsertResult | nul
   return insertAfter(markup, String(roots.length - 1), elementText);
 }
 
+export type MoveDirection = 'up' | 'down';
+
+/**
+ * Remove the referenced element (and its whole subtree) from the buffer. The
+ * element's source span is spliced out along with its own leading newline +
+ * indentation, so deleting a line doesn't leave a blank one behind. Returns
+ * null when the source span can't be located unambiguously.
+ */
+export function removeElement(markup: string, ref: ElementRef): string | null {
+  const body = parseBody(markup);
+  const element = resolveRef(body, ref);
+  if (!element) return null;
+  const all = Array.from(body.querySelectorAll('*'));
+  const spans = elementSpans(markup, all);
+  if (!spans) return null;
+  const span = spans[all.indexOf(element)];
+  let cut = span.start;
+  while (cut > 0 && (markup[cut - 1] === ' ' || markup[cut - 1] === '\t')) cut--;
+  if (cut > 0 && markup[cut - 1] === '\n') cut--; // also drop the newline that began this line
+  return markup.slice(0, cut) + markup.slice(span.end);
+}
+
+/**
+ * Swap the referenced element with its previous (`up`) or next (`down`) element
+ * sibling, preserving the separator text between them. Returns the new buffer
+ * and the element's new ref, or null when there's no sibling in that direction
+ * or the source spans can't be located.
+ */
+export function moveElement(
+  markup: string,
+  ref: ElementRef,
+  direction: MoveDirection,
+): InsertResult | null {
+  const body = parseBody(markup);
+  const element = resolveRef(body, ref);
+  if (!element) return null;
+  const sibling =
+    direction === 'up' ? element.previousElementSibling : element.nextElementSibling;
+  if (!sibling) return null;
+  const all = Array.from(body.querySelectorAll('*'));
+  const spans = elementSpans(markup, all);
+  if (!spans) return null;
+  const elementSpan = spans[all.indexOf(element)];
+  const siblingSpan = spans[all.indexOf(sibling)];
+  // Order the two spans (a before b) so the splice keeps their separator in place.
+  const [a, b] = direction === 'up' ? [siblingSpan, elementSpan] : [elementSpan, siblingSpan];
+  const next =
+    markup.slice(0, a.start) +
+    markup.slice(b.start, b.end) +
+    markup.slice(a.end, b.start) +
+    markup.slice(a.start, a.end) +
+    markup.slice(b.end);
+  const path = refToPath(ref);
+  path[path.length - 1] += direction === 'up' ? -1 : 1;
+  return { markup: next, ref: path.join('/') };
+}
+
 function parseBody(markup: string): HTMLElement {
   return new DOMParser().parseFromString(markup, 'text/html').body;
 }

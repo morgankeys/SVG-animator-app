@@ -28,6 +28,7 @@ const SAMPLE_MARKUP = `<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/
 
 const SAMPLE_STYLES = `#ground {
   fill: #3c3c3c;
+  transition: fill 0.4s ease-in-out;
 }
 
 #ball {

@@ -2,6 +2,7 @@ import {
   buildTimelineRows,
   collectKeyframes,
   resolveElementAnimations,
+  resolveElementTransitions,
 } from './animation';
 import { parseStyles } from './styles';
 import { resolveEffectiveProperties } from './cascade';
@@ -94,6 +95,62 @@ describe('resolveElementAnimations', () => {
   });
 });
 
+describe('resolveElementTransitions', () => {
+  function specs(css: string, markup = ballMarkup, id = 'ball') {
+    const el = bodyOf(markup).querySelector(`#${id}`)!;
+    return resolveElementTransitions(resolveEffectiveProperties(parseStyles(css), el));
+  }
+
+  it('parses the shorthand into property/duration/delay/timing', () => {
+    const [spec] = specs('#ball { transition: opacity 0.3s ease-in 0.1s }');
+    expect(spec).toMatchObject({
+      property: 'opacity',
+      durationMs: 300,
+      delayMs: 100,
+      timingFunction: 'ease-in',
+    });
+  });
+
+  it('defaults the property to all when only a duration is given', () => {
+    const [spec] = specs('#ball { transition: 0.5s }');
+    expect(spec).toMatchObject({ property: 'all', durationMs: 500, delayMs: 0 });
+  });
+
+  it('keeps commas inside cubic-bezier together and reads ms', () => {
+    const [spec] = specs('#ball { transition: transform 200ms cubic-bezier(0.1, 0.2, 0.3, 0.4) }');
+    expect(spec.property).toBe('transform');
+    expect(spec.timingFunction).toBe('cubic-bezier(0.1, 0.2, 0.3, 0.4)');
+  });
+
+  it('splits multiple comma-separated transitions into separate specs', () => {
+    const list = specs('#ball { transition: opacity 1s, transform 2s }');
+    expect(list.map((s) => [s.property, s.durationMs])).toEqual([
+      ['opacity', 1000],
+      ['transform', 2000],
+    ]);
+  });
+
+  it('builds from longhands when there is no shorthand', () => {
+    const [spec] = specs('#ball { transition-property: width; transition-duration: 3s }');
+    expect(spec).toMatchObject({ property: 'width', durationMs: 3000 });
+  });
+
+  it('lets a longhand override the matching shorthand part', () => {
+    const [spec] = specs('#ball { transition: opacity 1s; transition-duration: 5s }');
+    expect(spec).toMatchObject({ property: 'opacity', durationMs: 5000 });
+  });
+
+  it('ignores transition: none and skips a none property entry', () => {
+    expect(specs('#ball { transition: none }')).toHaveLength(0);
+    const list = specs('#ball { transition: none, opacity 1s }');
+    expect(list.map((s) => s.property)).toEqual(['opacity']);
+  });
+
+  it('returns no specs when the element declares no transition', () => {
+    expect(specs('#ball { fill: red }')).toHaveLength(0);
+  });
+});
+
 describe('buildTimelineRows', () => {
   it('produces one row per applied animation with keyframe stops', () => {
     const css =
@@ -143,5 +200,43 @@ describe('buildTimelineRows', () => {
     const css = '#ball { animation: a 1s, b 1s }\n@keyframes a {0%{}} @keyframes b {0%{}}';
     const built = rows(ballMarkup, css);
     expect(built.map((r) => r.rowId)).toEqual(['0/0::0', '0/0::1']);
+  });
+
+  it('emits a transition row labelled by property, with no stops or keyframes', () => {
+    const [row] = rows(ballMarkup, '#ball { transition: opacity 0.3s ease 0.1s }');
+    expect(row).toMatchObject({
+      kind: 'transition',
+      rowId: '0/0::t0',
+      elementRef: '0/0',
+      label: 'opacity',
+      durationMs: 300,
+      delayMs: 100,
+      iterations: 1,
+      keyframesRange: null,
+      stops: [],
+    });
+  });
+
+  it('points a transition row at its `transition` declaration in the buffer', () => {
+    const css = '#ball { transition: opacity 0.3s }';
+    const [row] = rows(ballMarkup, css);
+    const range = row.declarationRange!;
+    expect(css.slice(range.from, range.to)).toBe('transition: opacity 0.3s');
+  });
+
+  it('lists animation rows before transition rows on the same element', () => {
+    const css = '#ball { animation: a 1s; transition: opacity 1s }\n@keyframes a {0%{}}';
+    const built = rows(ballMarkup, css);
+    expect(built.map((r) => [r.kind, r.rowId])).toEqual([
+      ['animation', '0/0::0'],
+      ['transition', '0/0::t0'],
+    ]);
+  });
+
+  it('resolves transitions through the cascade (a later rule wins)', () => {
+    const css = 'circle { transition: width 1s } #ball { transition: height 2s }';
+    const built = rows(ballMarkup, css);
+    expect(built).toHaveLength(1);
+    expect(built[0]).toMatchObject({ kind: 'transition', label: 'height', durationMs: 2000 });
   });
 });

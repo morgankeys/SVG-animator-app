@@ -24,7 +24,7 @@ export function Timeline() {
     return (
       <section className="timeline panel">
         <header className="panel-header">Timeline</header>
-        <div className="panel-body placeholder">No animations yet</div>
+        <div className="panel-body placeholder">No animations or transitions yet</div>
       </section>
     );
   }
@@ -101,18 +101,18 @@ function TimelineTrack({ row, totalMs }: { row: TimelineRow; totalMs: number }) 
   const width = `${Math.max((row.durationMs / totalMs) * 100, 0.5)}%`;
 
   return (
-    <div className={`timeline-row${rowSelected ? ' selected' : ''}`}>
+    <div className={`timeline-row timeline-row--${row.kind}${rowSelected ? ' selected' : ''}`}>
       <button
         type="button"
         className="timeline-row-label"
         onClick={selectRow}
-        title={`${row.label} on ${row.elementRef}`}
+        title={`${row.kind} ${row.label} on ${row.elementRef}`}
       >
         <span className="timeline-row-name">{row.label}</span>
         <span className="timeline-row-meta">{formatDuration(row)}</span>
       </button>
       <div className="timeline-track-area" onClick={selectRow}>
-        <div className="timeline-track" style={{ left, width }}>
+        <div className={`timeline-track timeline-track--${row.kind}`} style={{ left, width }}>
           {row.stops.map((stop, index) => (
             <button
               key={`${index}-${stop.atPercent}`}

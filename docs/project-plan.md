@@ -88,8 +88,8 @@ The single most important phase. Establishes buffers-as-truth + the sandbox rend
 
 ## Phase 7 — Timeline: transitions
 
-- [ ] **7.1 Transition parsing** → rows.
-- [ ] **7.2 Transition rows + linking** in the timeline, mirroring Phase 6.
+- [x] **7.1 Transition parsing** → rows. — `model/animation.ts`: `resolveElementTransitions` parses the `transition` shorthand/longhand per element via the cascade (paren-aware split keeps `cubic-bezier()` commas together), defaulting the property to `all`; `buildTimelineRows` emits a `kind: 'transition'` row per transitioned property (label = property, bar from delay→delay+duration, no stops/`@keyframes`), `transition: none`/`none`-property entries skipped; jsdom-tested.
+- [x] **7.2 Transition rows + linking** in the timeline, mirroring Phase 6. — Transition rows render through the shared `TimelineTrack` (striped bar, distinct from animations); row select switches the right panel to Code and spotlights the `transition` declaration via a new `declarationRange` on `TimelineRow` (resolved from the winner's cascade `source`). rowIds namespaced `${ref}::t${index}` so the two kinds never collide; sample seeded with a `#ground` transition for visible demonstration.
 
 ---
 

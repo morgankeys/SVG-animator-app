@@ -25,7 +25,7 @@ describe('Timeline', () => {
   it('shows a placeholder when nothing is animated', () => {
     useDocumentStore.getState().setStyles('#ball { fill: red; }');
     render(<Timeline />);
-    expect(screen.getByText('No animations yet')).toBeInTheDocument();
+    expect(screen.getByText('No animations or transitions yet')).toBeInTheDocument();
   });
 
   it('selecting a row sets the timeline and element selection', () => {

@@ -77,10 +77,12 @@ A single selection store, consumed by all panels:
 
 ```ts
 Selection {
-  element?: ElementRef          // currently selected element (tree/canvas/rules)
-  timeline?: { rowId, stopId? } // selected animation row / keyframe stop
+  element?: ElementRef                      // currently selected element (tree/canvas/rules)
+  timeline?: { rowId, stopIndex: number | null } // selected animation row / keyframe stop
 }
 ```
+
+(Implemented in Phase 6: `element` and `timeline` are independent axes; selecting a Timeline row also points `element` at that row's element so the Rules panel follows along. `stopIndex` is null when the whole row — not a specific stop — is selected.)
 
 `ElementRef` is a stable reference into the markup tree (e.g. a path of child indices, or an assigned stable id). It must survive re-parses of the buffer.
 

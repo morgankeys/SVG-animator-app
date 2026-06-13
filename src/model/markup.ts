@@ -427,9 +427,12 @@ export function removeElement(markup: string, ref: ElementRef): string | null {
 
 /**
  * Swap the referenced element with its previous (`up`) or next (`down`) element
- * sibling, preserving the separator text between them. Returns the new buffer
- * and the element's new ref, or null when there's no sibling in that direction
- * or the source spans can't be located.
+ * sibling, preserving the separator text between them. `<defs>` siblings are
+ * skipped — they're excluded from the projected tree, so a move steps over them
+ * to the nearest *visible* sibling (and any interleaved `<defs>` stays put,
+ * since it lives in the separator the splice preserves). Returns the new buffer
+ * and the element's new ref, or null when there's no visible sibling in that
+ * direction or the source spans can't be located.
  */
 export function moveElement(
   markup: string,
@@ -439,8 +442,10 @@ export function moveElement(
   const body = parseBody(markup);
   const element = resolveRef(body, ref);
   if (!element) return null;
-  const sibling =
-    direction === 'up' ? element.previousElementSibling : element.nextElementSibling;
+  let sibling = direction === 'up' ? element.previousElementSibling : element.nextElementSibling;
+  while (sibling && sibling.tagName.toLowerCase() === 'defs') {
+    sibling = direction === 'up' ? sibling.previousElementSibling : sibling.nextElementSibling;
+  }
   if (!sibling) return null;
   const all = Array.from(body.querySelectorAll('*'));
   const spans = elementSpans(markup, all);
@@ -455,8 +460,10 @@ export function moveElement(
     markup.slice(a.end, b.start) +
     markup.slice(a.start, a.end) +
     markup.slice(b.end);
+  // Refs are positional over all element children (incl. <defs>); the moved
+  // element lands at the sibling's index, which need not be adjacent.
   const path = refToPath(ref);
-  path[path.length - 1] += direction === 'up' ? -1 : 1;
+  path[path.length - 1] = Array.prototype.indexOf.call(sibling.parentNode!.children, sibling);
   return { markup: next, ref: path.join('/') };
 }
 

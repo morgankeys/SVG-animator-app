@@ -306,6 +306,19 @@ describe('moveElement', () => {
     expect(moveElement(sampleDocument().markup, '0/0/0', 'up')).toBeNull();
     expect(moveElement(sampleDocument().markup, '0/0/1', 'down')).toBeNull();
   });
+
+  it('steps over an interleaved <defs>, leaving it in place', () => {
+    const markup = '<svg>\n  <rect/>\n  <defs></defs>\n  <circle/>\n</svg>';
+    const result = moveElement(markup, '0/2', 'up'); // circle up over rect, past <defs>
+    expect(result!.ref).toBe('0/0'); // circle takes rect's index
+    expect(parseMarkup(result!.markup)[0].children.map((c) => c.tag)).toEqual(['circle', 'rect']);
+    // <defs> stays between them (it rode along in the preserved separator).
+    expect(result!.markup).toBe('<svg>\n  <circle/>\n  <defs></defs>\n  <rect/>\n</svg>');
+  });
+
+  it('treats a <defs> as no sibling at the visible boundary', () => {
+    expect(moveElement('<svg>\n  <defs></defs>\n  <rect/>\n</svg>', '0/1', 'up')).toBeNull();
+  });
 });
 
 describe('ensureElementId', () => {

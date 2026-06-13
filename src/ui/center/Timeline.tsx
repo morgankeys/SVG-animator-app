@@ -1,4 +1,5 @@
 import { useSelectionStore } from '../../state/selectionStore';
+import { useUiStore } from '../../state/uiStore';
 import { useTimelineRows, timelineDurationMs } from './useTimelineRows';
 import { usePlayback } from './usePlayback';
 import type { TimelineRow } from '../../model/animation';
@@ -79,15 +80,19 @@ function TimelineTrack({ row, totalMs }: { row: TimelineRow; totalMs: number }) 
   const selection = useSelectionStore((s) => s.timeline);
   const selectTimeline = useSelectionStore((s) => s.selectTimeline);
   const selectElement = useSelectionStore((s) => s.selectElement);
+  const setRightTab = useUiStore((s) => s.setRightTab);
   const rowSelected = selection?.rowId === row.rowId;
 
+  // Selecting a row/stop reveals the linked @keyframes in the right panel (6.4).
   const selectRow = () => {
     selectTimeline({ rowId: row.rowId, stopIndex: null });
     selectElement(row.elementRef);
+    setRightTab('code');
   };
   const selectStop = (stopIndex: number) => {
     selectTimeline({ rowId: row.rowId, stopIndex });
     selectElement(row.elementRef);
+    setRightTab('code');
   };
 
   // Position the active span within the common timeline; stops sit along it.

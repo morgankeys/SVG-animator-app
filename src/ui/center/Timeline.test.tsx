@@ -9,7 +9,7 @@ import { useUiStore } from '../../state/uiStore';
 beforeEach(() => {
   useDocumentStore.setState({ ...sampleDocument(), past: [], future: [] });
   useSelectionStore.setState({ element: null, timeline: null });
-  useUiStore.setState({ playing: false, playheadMs: 0 });
+  useUiStore.setState({ playing: false, playheadMs: 0, rightTab: 'rules' });
 });
 
 describe('Timeline', () => {
@@ -39,6 +39,12 @@ describe('Timeline', () => {
     render(<Timeline />);
     fireEvent.click(screen.getByLabelText('bounce keyframe 50%'));
     expect(useSelectionStore.getState().timeline).toEqual({ rowId: '0/0/1::0', stopIndex: 1 });
+  });
+
+  it('selecting a row reveals the keyframes by switching the right panel to Code', () => {
+    render(<Timeline />);
+    fireEvent.click(screen.getByText('bounce'));
+    expect(useUiStore.getState().rightTab).toBe('code');
   });
 
   it('the play button toggles transport state', () => {

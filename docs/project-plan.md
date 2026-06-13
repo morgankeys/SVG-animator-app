@@ -78,10 +78,10 @@ The single most important phase. Establishes buffers-as-truth + the sandbox rend
 
 ## Phase 6 — Timeline: animations
 
-- [ ] **6.1 Animation parsing.** `model/animation.ts`: `@keyframes` + `animation` shorthand/longhand → `TimelineRow`s with stops.
-- [ ] **6.2 Timeline UI.** One row per `animation`; stops at keyframe percentages (no per-property hierarchy).
-- [ ] **6.3 Playback + scrub** via Web Animations API (`getAnimations()`, `currentTime`).
-- [ ] **6.4 Timeline↔keyframes linking.** Row select → show `@keyframes` in right panel; stop select → highlight the `50% { … }` block.
+- [x] **6.1 Animation parsing.** `model/animation.ts`: `@keyframes` + `animation` shorthand/longhand → `TimelineRow`s with stops. — Pure: collects `@keyframes` (from/to + grouped selectors, styles-buffer ranges for linking), parses the shorthand/longhand, resolves which animations apply per element via the cascade engine; `<defs>` excluded; jsdom-tested.
+- [x] **6.2 Timeline UI.** One row per `animation`; stops at keyframe percentages (no per-property hierarchy). — Rows from a shared `useTimelineRows` projection; stops at `@keyframes` percentages on a common timeline scale; row/stop click drives shared element + timeline selection (new `timeline` axis in selectionStore).
+- [x] **6.3 Playback + scrub** via Web Animations API (`getAnimations()`, `currentTime`). — One owned playhead pauses every live animation and sets `currentTime` (play via rAF loop + scrub share one path); `getSandboxAnimations` on the registry; playhead/playing in uiStore.
+- [x] **6.4 Timeline↔keyframes linking.** Row select → show `@keyframes` in right panel; stop select → highlight the `50% { … }` block. — Row/stop select switches the right panel to Code and spotlights the `@keyframes` block (or specific stop) via a CodeMirror mark decoration + scroll-into-view.
   - Done when: scrubbing moves the rendered animation; selection links both ways.
 
 ---

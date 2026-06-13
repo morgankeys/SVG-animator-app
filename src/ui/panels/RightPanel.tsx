@@ -1,6 +1,9 @@
+import { useMemo } from 'react';
 import { useUiStore } from '../../state/uiStore';
 import type { RightTab } from '../../state/uiStore';
 import { useDocumentStore } from '../../state/documentStore';
+import { useSelectionStore } from '../../state/selectionStore';
+import { useTimelineRows } from '../center/useTimelineRows';
 import { RulesTab } from './RulesTab';
 import { CodeView } from '../shared/CodeView';
 
@@ -9,11 +12,26 @@ const tabs: Array<{ id: RightTab; label: string }> = [
   { id: 'code', label: 'Code' },
 ];
 
-/** Right panel: Rules (controls) / Code (the styles buffer — source of truth). */
+/**
+ * Right panel: Rules (controls) / Code (the styles buffer — source of truth).
+ * Selecting a Timeline row/stop switches to Code and spotlights the linked
+ * `@keyframes` block (or its specific stop) in the buffer (docs/ui-spec.md, 6.4).
+ */
 export function RightPanel() {
   const rightTab = useUiStore((s) => s.rightTab);
   const setRightTab = useUiStore((s) => s.setRightTab);
   const styles = useDocumentStore((s) => s.styles);
+  const timeline = useSelectionStore((s) => s.timeline);
+  const rows = useTimelineRows();
+
+  const highlight = useMemo(() => {
+    if (!timeline) return null;
+    const row = rows.find((r) => r.rowId === timeline.rowId);
+    if (!row) return null;
+    return timeline.stopIndex !== null
+      ? (row.stops[timeline.stopIndex]?.range ?? null)
+      : row.keyframesRange;
+  }, [timeline, rows]);
 
   return (
     <section className="panel">
@@ -30,7 +48,11 @@ export function RightPanel() {
           </button>
         ))}
       </header>
-      {rightTab === 'rules' ? <RulesTab /> : <CodeView value={styles} language="css" />}
+      {rightTab === 'rules' ? (
+        <RulesTab />
+      ) : (
+        <CodeView value={styles} language="css" highlight={highlight} />
+      )}
     </section>
   );
 }

@@ -4,9 +4,12 @@ import { useDocumentStore } from '../../state/documentStore';
 import { useSelectionStore } from '../../state/selectionStore';
 import { sampleDocument } from '../../model/document';
 
+import { useUiStore } from '../../state/uiStore';
+
 beforeEach(() => {
   useDocumentStore.setState({ ...sampleDocument(), past: [], future: [] });
   useSelectionStore.setState({ element: null, timeline: null });
+  useUiStore.setState({ playing: false, playheadMs: 0 });
 });
 
 describe('Timeline', () => {
@@ -36,5 +39,21 @@ describe('Timeline', () => {
     render(<Timeline />);
     fireEvent.click(screen.getByLabelText('bounce keyframe 50%'));
     expect(useSelectionStore.getState().timeline).toEqual({ rowId: '0/0/1::0', stopIndex: 1 });
+  });
+
+  it('the play button toggles transport state', () => {
+    render(<Timeline />);
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    expect(useUiStore.getState().playing).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+    expect(useUiStore.getState().playing).toBe(false);
+  });
+
+  it('scrubbing sets the playhead and pauses', () => {
+    useUiStore.setState({ playing: true });
+    render(<Timeline />);
+    fireEvent.change(screen.getByLabelText('Scrub timeline'), { target: { value: '1000' } });
+    expect(useUiStore.getState().playheadMs).toBe(1000);
+    expect(useUiStore.getState().playing).toBe(false);
   });
 });

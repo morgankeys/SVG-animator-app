@@ -3,6 +3,7 @@ import { ElementsPanel } from './ElementsPanel';
 import { useDocumentStore } from '../../state/documentStore';
 import { useSelectionStore } from '../../state/selectionStore';
 import { sampleDocument } from '../../model/document';
+import { parseMarkup } from '../../model/markup';
 
 beforeEach(() => {
   useDocumentStore.setState(sampleDocument());
@@ -53,4 +54,57 @@ describe('ElementsPanel', () => {
     expect(screen.queryByText('#ball')).not.toBeInTheDocument();
     expect(screen.getByText('#only')).toBeInTheDocument();
   });
+
+  it('adds a shape via the menu, writing the buffer and selecting the new element', () => {
+    render(<ElementsPanel />);
+    fireEvent.click(screen.getByText('#ball')); // select the leaf circle
+    fireEvent.click(screen.getByRole('button', { name: 'Add shape' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rectangle' }));
+
+    expect(useDocumentStore.getState().markup).toContain('<rect x="20" y="20"');
+    // Inserted as the circle's next sibling, then selected.
+    expect(useSelectionStore.getState().element).toBe('0/0/2');
+    // Menu closes after a choice.
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
+  it('shows a warning when the shape cannot be inserted', () => {
+    useDocumentStore.getState().setMarkup('<table><tr><td>x</td></tr></table>');
+    render(<ElementsPanel />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add shape' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rectangle' }));
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+
+  it('deletes an element from the tree and clears a stale selection', () => {
+    render(<ElementsPanel />);
+    fireEvent.click(screen.getByText('#ball'));
+    expect(useSelectionStore.getState().element).toBe('0/0/1');
+    fireEvent.click(screen.getByRole('button', { name: 'Delete circle' }));
+    expect(useDocumentStore.getState().markup).not.toContain('id="ball"');
+    expect(screen.queryByText('#ball')).not.toBeInTheDocument();
+    expect(useSelectionStore.getState().element).toBeNull();
+  });
+
+  it('reorders siblings and follows the selection to the moved element', () => {
+    render(<ElementsPanel />);
+    fireEvent.click(screen.getByText('#ground'));
+    fireEvent.click(screen.getByRole('button', { name: 'Move rect down' }));
+    expect(parseTags()).toEqual(['ball', 'ground']);
+    expect(useSelectionStore.getState().element).toBe('0/0/1'); // selection followed
+  });
+
+  it('disables move buttons at the sibling boundaries', () => {
+    render(<ElementsPanel />);
+    // rect#ground is the first child → can't move up; circle#ball is last → can't move down.
+    expect(screen.getByRole('button', { name: 'Move rect up' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Move circle down' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Move rect down' })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Move circle up' })).not.toBeDisabled();
+  });
 });
+
+/** Ids of the scene group's children in document order, from the live store. */
+function parseTags(): (string | undefined)[] {
+  return parseMarkup(useDocumentStore.getState().markup)[0].children[0].children.map((c) => c.id);
+}

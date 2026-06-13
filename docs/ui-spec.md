@@ -22,7 +22,7 @@ Layout inspired by Figma / Framer: left panel, center view (preview/code + timel
 - Non-graphical containers (`<svg>`, `<g>`, wrapper `<div>`) are treated like **frames**.
 - **Selection sync (bidirectional):** selecting a node here highlights it on the canvas; selecting on the canvas highlights it here. Backed by shared selection state.
 - Each row: disclosure triangle, element label (tag + id/class hint), visibility affordance (later).
-- Editing affordances (Phase 5): add/delete/reorder elements → mutate the markup buffer.
+- **Editing affordances (Phase 5, done):** an **Add** menu inserts shapes (placed inside a selected container, beside a selected leaf, else the first root container); each row has **↑ / ↓ / ✕** controls to reorder among siblings and delete. All mutate the markup buffer through the document store (one undoable step each). Drag-to-reorder, re-parenting, and canvas manipulation are deferred.
 
 ## Center view
 

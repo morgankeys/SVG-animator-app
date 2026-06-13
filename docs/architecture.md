@@ -53,7 +53,7 @@ Everything else — the element tree, the resolved styles for the Rules panel, t
 ### Write path (UI → code)
 
 1. A UI control (e.g. opacity slider) requests a change to a specific declaration.
-2. The change is applied as a **mutation on the AST node** — *in place*, preserving surrounding formatting/comments. PostCSS for styles; for markup, a **targeted text splice of the element's start tag** (re-serializing the DOM would normalize quoting/self-closing syntax across the whole buffer — see `model/markup.ts`).
+2. The change is applied as a **mutation on the AST node** — *in place*, preserving surrounding formatting/comments. PostCSS for styles; for markup, a **targeted text splice of the element's start tag** (re-serializing the DOM would normalize quoting/self-closing syntax across the whole buffer — see `model/markup.ts`). Structural edits (add/delete/reorder, Phase 5) splice whole element *subtrees* located by the same source-span correspondence, never re-serializing.
 3. The mutated AST is serialized back to the buffer string.
 4. The buffer change re-triggers the read path. UI re-projects.
 

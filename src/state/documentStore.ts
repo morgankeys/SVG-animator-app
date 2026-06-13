@@ -1,9 +1,16 @@
 import { create } from 'zustand';
 import { sampleDocument } from '../model/document';
 import type { Document } from '../model/document';
-import { writeStyleDeclaration, writeMarkupAttribute } from '../model/edit';
-import type { EditResult } from '../model/edit';
-import type { ElementRef } from '../model/markup';
+import {
+  writeStyleDeclaration,
+  writeMarkupAttribute,
+  insertShape,
+  deleteElement,
+  moveElement,
+} from '../model/edit';
+import type { EditResult, InsertEditResult } from '../model/edit';
+import type { ElementRef, MoveDirection } from '../model/markup';
+import type { ShapeKind } from '../model/shapes';
 
 /**
  * Holds the source-of-truth buffers, the write-path actions UI controls call
@@ -22,6 +29,12 @@ interface DocumentState extends Document {
   applyStyleEdit: (ref: ElementRef, property: string, value: string) => EditResult;
   /** Write an element attribute (markup buffer). */
   applyAttributeEdit: (ref: ElementRef, attribute: string, value: string) => EditResult;
+  /** Add a shape near the selection (markup buffer); returns the new element's ref. */
+  addShape: (kind: ShapeKind, selectedRef: ElementRef | null) => InsertEditResult;
+  /** Delete an element and its subtree (markup buffer). */
+  deleteElement: (ref: ElementRef) => EditResult;
+  /** Reorder an element among its siblings (markup buffer); returns its new ref. */
+  moveElement: (ref: ElementRef, direction: MoveDirection) => InsertEditResult;
   /** Restore the previous/next snapshot. False when the stack is empty. */
   undo: () => boolean;
   redo: () => boolean;
@@ -57,6 +70,21 @@ export const useDocumentStore = create<DocumentState>((set, get) => {
     },
     applyAttributeEdit: (ref, attribute, value) => {
       const result = writeMarkupAttribute(buffers(get()), ref, attribute, value);
+      if (result.ok) commit(result.document);
+      return result;
+    },
+    addShape: (kind, selectedRef) => {
+      const result = insertShape(buffers(get()), kind, selectedRef);
+      if (result.ok) commit(result.document);
+      return result;
+    },
+    deleteElement: (ref) => {
+      const result = deleteElement(buffers(get()), ref);
+      if (result.ok) commit(result.document);
+      return result;
+    },
+    moveElement: (ref, direction) => {
+      const result = moveElement(buffers(get()), ref, direction);
       if (result.ok) commit(result.document);
       return result;
     },

@@ -4,8 +4,18 @@
  * back the new buffer strings. Pure — the document store applies the result.
  */
 import type { Document } from './document';
-import { resolveRef, setMarkupAttribute, ensureElementId } from './markup';
-import type { ElementRef } from './markup';
+import {
+  resolveRef,
+  setMarkupAttribute,
+  ensureElementId,
+  insertAfter,
+  insertChild,
+  removeElement,
+  moveElement as moveElementInBuffer,
+} from './markup';
+import type { ElementRef, MoveDirection } from './markup';
+import { createShapeMarkup } from './shapes';
+import type { ShapeKind } from './shapes';
 import { parseStyles, serializeStyles, setDeclarationValue, createDeclaration } from './styles';
 import { resolveEffectiveProperties } from './cascade';
 
@@ -20,6 +30,81 @@ export type EditFailure =
   | 'markup-write-failed';
 
 export type EditResult = { ok: true; document: Document } | { ok: false; reason: EditFailure };
+
+export type InsertEditResult =
+  | { ok: true; document: Document; ref: ElementRef }
+  | { ok: false; reason: EditFailure };
+
+/** Tags a new shape lands *inside* rather than beside (docs/ui-spec.md). */
+const CONTAINER_TAGS = new Set(['svg', 'g', 'a', 'switch']);
+
+/**
+ * Add a shape to the markup buffer near the current selection: inside it when a
+ * container is selected, as its next sibling when a leaf is selected, and inside
+ * the first root container (or at the top level) when nothing is selected. The
+ * new element's serialized text is spliced into the buffer; we hand back its ref
+ * so the caller can select it.
+ */
+export function insertShape(
+  document: Document,
+  kind: ShapeKind,
+  selectedRef: ElementRef | null,
+): InsertEditResult {
+  const elementText = createShapeMarkup(kind);
+  const body = parseDom(document.markup);
+  const selected = selectedRef ? resolveRef(body, selectedRef) : null;
+
+  const inserted =
+    selected && selectedRef
+      ? isContainer(selected)
+        ? insertChild(document.markup, selectedRef, elementText)
+        : insertAfter(document.markup, selectedRef, elementText)
+      : insertChild(document.markup, defaultParentRef(body), elementText);
+
+  if (!inserted) return { ok: false, reason: 'markup-write-failed' };
+  return {
+    ok: true,
+    document: { markup: inserted.markup, styles: document.styles },
+    ref: inserted.ref,
+  };
+}
+
+/** Delete the referenced element (and its subtree) from the markup buffer. */
+export function deleteElement(document: Document, ref: ElementRef): EditResult {
+  if (!resolveRef(parseDom(document.markup), ref)) {
+    return { ok: false, reason: 'element-not-found' };
+  }
+  const markup = removeElement(document.markup, ref);
+  if (markup === null) return { ok: false, reason: 'markup-write-failed' };
+  return { ok: true, document: { markup, styles: document.styles } };
+}
+
+/** Reorder the referenced element among its siblings; returns its new ref. */
+export function moveElement(
+  document: Document,
+  ref: ElementRef,
+  direction: MoveDirection,
+): InsertEditResult {
+  if (!resolveRef(parseDom(document.markup), ref)) {
+    return { ok: false, reason: 'element-not-found' };
+  }
+  const result = moveElementInBuffer(document.markup, ref, direction);
+  if (!result) return { ok: false, reason: 'markup-write-failed' };
+  return { ok: true, document: { markup: result.markup, styles: document.styles }, ref: result.ref };
+}
+
+function isContainer(element: Element): boolean {
+  return CONTAINER_TAGS.has(element.tagName.toLowerCase());
+}
+
+/** Where shapes go with no selection: the first root container, else top level (''). */
+function defaultParentRef(body: Element): ElementRef {
+  const roots = Array.from(body.children);
+  for (let i = 0; i < roots.length; i++) {
+    if (isContainer(roots[i])) return String(i);
+  }
+  return '';
+}
 
 /**
  * Write a CSS property for the referenced element into the styles buffer:

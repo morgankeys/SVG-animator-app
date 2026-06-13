@@ -100,18 +100,21 @@ export function resolveRef(root: ParentNode, ref: ElementRef): Element | null {
  * caller surfaces a warning instead of corrupting the buffer.
  */
 
-interface StartTag {
+type TagKind = 'open' | 'close' | 'self';
+
+interface Tag {
   name: string;
   start: number; // index of '<'
   end: number; // index just past '>'
+  kind: TagKind;
 }
 
 /** Elements the HTML parser treats as raw text — their content may contain '<'. */
 const RAW_TEXT_TAGS = new Set(['script', 'style', 'textarea', 'xmp']);
 
-/** Source-order start tags, or null when the buffer can't be tokenized. */
-function scanStartTags(markup: string): StartTag[] | null {
-  const tags: StartTag[] = [];
+/** Source-order tags (open/close/self-closing), or null when untokenizable. */
+function scanTags(markup: string): Tag[] | null {
+  const tags: Tag[] = [];
   let i = 0;
   while (i < markup.length) {
     const lt = markup.indexOf('<', i);
@@ -120,11 +123,12 @@ function scanStartTags(markup: string): StartTag[] | null {
       const close = markup.indexOf('-->', lt + 4);
       if (close < 0) return null;
       i = close + 3;
-    } else if (
-      markup.startsWith('</', lt) ||
-      markup.startsWith('<!', lt) ||
-      markup.startsWith('<?', lt)
-    ) {
+    } else if (markup.startsWith('</', lt)) {
+      const close = markup.indexOf('>', lt);
+      if (close < 0) return null;
+      tags.push({ name: markup.slice(lt + 2, close).trim(), start: lt, end: close + 1, kind: 'close' });
+      i = close + 1;
+    } else if (markup.startsWith('<!', lt) || markup.startsWith('<?', lt)) {
       const close = markup.indexOf('>', lt);
       if (close < 0) return null;
       i = close + 1;
@@ -145,7 +149,13 @@ function scanStartTags(markup: string): StartTag[] | null {
   return tags;
 }
 
-function readStartTag(markup: string, start: number): StartTag | null {
+/** Source-order start tags (open + self-closing), or null when untokenizable. */
+function scanStartTags(markup: string): Tag[] | null {
+  const tags = scanTags(markup);
+  return tags && tags.filter((t) => t.kind !== 'close');
+}
+
+function readStartTag(markup: string, start: number): Tag | null {
   let j = start + 1;
   while (j < markup.length && !/[\s/>]/.test(markup[j])) j++;
   const name = markup.slice(start + 1, j);
@@ -156,7 +166,7 @@ function readStartTag(markup: string, start: number): StartTag | null {
       if (close < 0) return null;
       j = close + 1;
     } else if (c === '>') {
-      return { name, start, end: j + 1 };
+      return { name, start, end: j + 1, kind: markup[j - 1] === '/' ? 'self' : 'open' };
     } else {
       j++;
     }
@@ -169,7 +179,7 @@ function readStartTag(markup: string, start: number): StartTag | null {
  * list is verified against the DOM so a single parser quirk can't silently
  * shift the correspondence onto the wrong tag.
  */
-function correspondingTag(markup: string, body: Element, element: Element): StartTag | null {
+function correspondingTag(markup: string, body: Element, element: Element): Tag | null {
   const all = Array.from(body.querySelectorAll('*'));
   const index = all.indexOf(element);
   if (index < 0) return null;
@@ -264,6 +274,194 @@ function spliceAttribute(
 function escapeAttrValue(value: string, quote: string): string {
   const amp = value.replace(/&/g, '&amp;');
   return quote === "'" ? amp.replace(/'/g, '&#39;') : amp.replace(/"/g, '&quot;');
+}
+
+/*
+ * Structural mutation (Phase 5): adding elements splices the new element's
+ * serialized text into the buffer — never re-serializing the DOM (invariant 3).
+ * Insertion points are located by the same pre-order tag correspondence used
+ * for attribute edits, extended to whole subtrees via a stack walk over the
+ * source tags. When correspondence can't be established the helpers return
+ * null and the caller surfaces a warning instead of corrupting the buffer.
+ */
+
+const INDENT_UNIT = '  ';
+
+export interface InsertResult {
+  markup: string;
+  ref: ElementRef;
+}
+
+interface ElementSpan {
+  start: number; // index of the element's '<'
+  end: number; // index just past the element's final '>'
+}
+
+/**
+ * Source spans for every element in pre-order (matching `querySelectorAll('*')`),
+ * or null when the source tags don't cleanly correspond to the parsed DOM. A
+ * stack walk pairs each open tag with its close so spans cover whole subtrees.
+ */
+function elementSpans(markup: string, all: Element[]): ElementSpan[] | null {
+  const tags = scanTags(markup);
+  if (!tags) return null;
+  const opens = tags.filter((t) => t.kind !== 'close');
+  if (opens.length !== all.length) return null;
+  for (let k = 0; k < opens.length; k++) {
+    if (opens[k].name.toLowerCase() !== all[k].tagName.toLowerCase()) return null;
+  }
+  const spans: ElementSpan[] = new Array(all.length);
+  const stack: number[] = [];
+  let cursor = 0; // next pre-order element index
+  for (const tag of tags) {
+    if (tag.kind === 'close') {
+      const idx = stack.pop();
+      if (idx === undefined || all[idx].tagName.toLowerCase() !== tag.name.toLowerCase()) {
+        return null;
+      }
+      spans[idx].end = tag.end;
+    } else {
+      spans[cursor] = { start: tag.start, end: tag.end };
+      if (tag.kind === 'open') stack.push(cursor);
+      cursor++;
+    }
+  }
+  return stack.length === 0 ? spans : null;
+}
+
+/** Whitespace from the start of `pos`'s line up to `pos` (its indentation). */
+function lineIndent(markup: string, pos: number): string {
+  let lineStart = pos;
+  while (lineStart > 0 && markup[lineStart - 1] !== '\n') lineStart--;
+  let i = lineStart;
+  while (i < pos && (markup[i] === ' ' || markup[i] === '\t')) i++;
+  return markup.slice(lineStart, i);
+}
+
+/**
+ * Insert `elementText` as the next sibling after `siblingRef`, on its own line
+ * at the sibling's indentation. Returns the new buffer and the new element's
+ * ref, or null when the sibling's source span can't be located.
+ */
+export function insertAfter(
+  markup: string,
+  siblingRef: ElementRef,
+  elementText: string,
+): InsertResult | null {
+  const body = parseBody(markup);
+  const sibling = resolveRef(body, siblingRef);
+  if (!sibling) return null;
+  const all = Array.from(body.querySelectorAll('*'));
+  const spans = elementSpans(markup, all);
+  if (!spans) return null;
+  const span = spans[all.indexOf(sibling)];
+  const indent = lineIndent(markup, span.start);
+  const next = markup.slice(0, span.end) + `\n${indent}${elementText}` + markup.slice(span.end);
+  const path = refToPath(siblingRef);
+  path[path.length - 1] += 1;
+  return { markup: next, ref: path.join('/') };
+}
+
+/**
+ * Insert `elementText` as the last child of the container at `parentRef` (or as
+ * a new root when `parentRef` is empty). Returns null when the container is
+ * self-closing or its tags can't be located unambiguously.
+ */
+export function insertChild(
+  markup: string,
+  parentRef: ElementRef,
+  elementText: string,
+): InsertResult | null {
+  if (parentRef === '') return insertTopLevel(markup, elementText);
+  const body = parseBody(markup);
+  const parent = resolveRef(body, parentRef);
+  if (!parent) return null;
+  const childCount = parent.children.length;
+  if (childCount > 0) {
+    return insertAfter(markup, `${parentRef}/${childCount - 1}`, elementText);
+  }
+  // Empty container: drop the child between its start and end tags.
+  const startTag = correspondingTag(markup, body, parent);
+  if (!startTag || startTag.kind === 'self') return null;
+  const all = Array.from(body.querySelectorAll('*'));
+  const spans = elementSpans(markup, all);
+  if (!spans) return null;
+  const span = spans[all.indexOf(parent)];
+  const closeStart = markup.lastIndexOf('<', span.end - 1);
+  if (closeStart < startTag.end) return null;
+  const indent = lineIndent(markup, span.start);
+  const insertion = `\n${indent}${INDENT_UNIT}${elementText}\n${indent}`;
+  const next = markup.slice(0, startTag.end) + insertion + markup.slice(closeStart);
+  return { markup: next, ref: `${parentRef}/0` };
+}
+
+function insertTopLevel(markup: string, elementText: string): InsertResult | null {
+  const roots = Array.from(parseBody(markup).children);
+  if (roots.length === 0) {
+    return { markup: markup === '' ? `${elementText}\n` : `${markup}${elementText}\n`, ref: '0' };
+  }
+  return insertAfter(markup, String(roots.length - 1), elementText);
+}
+
+export type MoveDirection = 'up' | 'down';
+
+/**
+ * Remove the referenced element (and its whole subtree) from the buffer. The
+ * element's source span is spliced out along with its own leading newline +
+ * indentation, so deleting a line doesn't leave a blank one behind. Returns
+ * null when the source span can't be located unambiguously.
+ */
+export function removeElement(markup: string, ref: ElementRef): string | null {
+  const body = parseBody(markup);
+  const element = resolveRef(body, ref);
+  if (!element) return null;
+  const all = Array.from(body.querySelectorAll('*'));
+  const spans = elementSpans(markup, all);
+  if (!spans) return null;
+  const span = spans[all.indexOf(element)];
+  let cut = span.start;
+  while (cut > 0 && (markup[cut - 1] === ' ' || markup[cut - 1] === '\t')) cut--;
+  if (cut > 0 && markup[cut - 1] === '\n') cut--; // also drop the newline that began this line
+  return markup.slice(0, cut) + markup.slice(span.end);
+}
+
+/**
+ * Swap the referenced element with its previous (`up`) or next (`down`) element
+ * sibling, preserving the separator text between them. Returns the new buffer
+ * and the element's new ref, or null when there's no sibling in that direction
+ * or the source spans can't be located.
+ */
+export function moveElement(
+  markup: string,
+  ref: ElementRef,
+  direction: MoveDirection,
+): InsertResult | null {
+  const body = parseBody(markup);
+  const element = resolveRef(body, ref);
+  if (!element) return null;
+  const sibling =
+    direction === 'up' ? element.previousElementSibling : element.nextElementSibling;
+  if (!sibling) return null;
+  const all = Array.from(body.querySelectorAll('*'));
+  const spans = elementSpans(markup, all);
+  if (!spans) return null;
+  const elementSpan = spans[all.indexOf(element)];
+  const siblingSpan = spans[all.indexOf(sibling)];
+  // Order the two spans (a before b) so the splice keeps their separator in place.
+  const [a, b] = direction === 'up' ? [siblingSpan, elementSpan] : [elementSpan, siblingSpan];
+  const next =
+    markup.slice(0, a.start) +
+    markup.slice(b.start, b.end) +
+    markup.slice(a.end, b.start) +
+    markup.slice(a.start, a.end) +
+    markup.slice(b.end);
+  const path = refToPath(ref);
+  path[path.length - 1] += direction === 'up' ? -1 : 1;
+  return { markup: next, ref: path.join('/') };
+}
+
+function parseBody(markup: string): HTMLElement {
+  return new DOMParser().parseFromString(markup, 'text/html').body;
 }
 
 /**

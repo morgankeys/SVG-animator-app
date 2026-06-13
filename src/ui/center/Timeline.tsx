@@ -12,7 +12,8 @@ const TRACK_MARGIN = 12; // matches .timeline-track-area horizontal margin in ap
  * stops at the `@keyframes` percentages — no per-property hierarchy. Rows and
  * stops are pure projections of the buffers (useTimelineRows). Play/scrub drive
  * the rendered animation via the Web Animations API (usePlayback). Selecting a
- * row or stop drives shared selection; keyframe linking arrives in 6.4.
+ * row or stop drives shared selection and reveals the linked `@keyframes` in
+ * the right panel (6.4).
  */
 export function Timeline() {
   const rows = useTimelineRows();

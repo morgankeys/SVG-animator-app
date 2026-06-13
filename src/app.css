@@ -297,15 +297,17 @@ body {
 }
 
 .tree-actions {
-  display: none;
+  display: flex;
   gap: 1px;
   flex-shrink: 0;
   padding-right: 6px;
+  opacity: 0.4;
+  transition: opacity 0.1s;
 }
 
 .tree-row:hover .tree-actions,
 .tree-row.selected .tree-actions {
-  display: flex;
+  opacity: 1;
 }
 
 .tree-action {

@@ -151,6 +151,151 @@ body {
   border-top: 1px solid var(--panel-border);
 }
 
+.timeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.timeline-transport {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  max-width: 360px;
+}
+
+.timeline-play {
+  width: 26px;
+  height: 22px;
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.timeline-play:hover {
+  background: var(--panel-border);
+}
+
+.timeline-scrub {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+}
+
+.timeline-time {
+  flex-shrink: 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-body {
+  padding: 0;
+  position: relative;
+}
+
+.timeline-playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #f48771;
+  pointer-events: none;
+}
+
+.timeline-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.timeline-row {
+  display: grid;
+  grid-template-columns: 132px 1fr;
+  align-items: stretch;
+  border-bottom: 1px solid var(--panel-border);
+  min-height: 28px;
+}
+
+.timeline-row.selected {
+  background: #173a5e;
+}
+
+.timeline-row-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  padding: 0 10px;
+  background: none;
+  border: none;
+  border-right: 1px solid var(--panel-border);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.timeline-row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-row-meta {
+  color: var(--text-dim);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.timeline-track-area {
+  position: relative;
+  margin: 8px 12px;
+  cursor: pointer;
+}
+
+.timeline-track {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 6px;
+  border-radius: 3px;
+  background: var(--accent);
+  opacity: 0.5;
+}
+
+.timeline-row.selected .timeline-track {
+  opacity: 0.8;
+}
+
+.timeline-stop {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  padding: 0;
+  border: 1px solid var(--bg);
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+.timeline-stop:hover {
+  background: #fff;
+}
+
+.timeline-stop.selected {
+  background: #fff;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
 .tab-row {
   display: flex;
   gap: 4px;

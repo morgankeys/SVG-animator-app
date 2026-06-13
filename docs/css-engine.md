@@ -90,22 +90,31 @@ Parsed in `model/animation.ts`:
 - **`animation` / `animation-*`** on an element → `{ name, duration, delay, iteration, timing, direction, fill }`.
 - **`transition` / `transition-*`** → `{ property, duration, delay, timing }`.
 
-Timeline row model:
+Timeline row model (as implemented in Phase 6 for animations; transitions reuse the shape in Phase 7):
 
 ```ts
+TextRange { from: number, to: number }   // char span in the styles buffer
+
 TimelineRow {
   kind: "animation" | "transition"
+  rowId: string                 // stable within one projection: `${elementRef}::${index}`
   elementRef: ElementRef
-  label: string                 // animation name or property
+  label: string                 // animation name (or, in P7, the transitioned property)
   durationMs: number
-  stops: Array<{ atPercent: number, keyframeRef }>   // animations only
+  delayMs: number
+  iterations: number            // Infinity for `infinite`
+  keyframesRange: TextRange | null   // the @keyframes block in the buffer (null if missing)
+  stops: Array<{ atPercent: number, range: TextRange }>   // animations only
 }
 ```
 
+Rows are a **pure projection** of the buffers (`model/animation.ts` → `buildTimelineRows`), surfaced to the UI by the `useTimelineRows` hook so both the Timeline strip and the right-panel linking share one derivation. Which animation applies to which element is a **cascade** question — resolved via `resolveEffectiveProperties`, never by mapping a rule directly to an element. Stops carry a `TextRange` (rather than an opaque ref) so the Code tab can spotlight the exact block; those offsets come from PostCSS `source` positions and are valid against the **plain-CSS** styles buffer (Phase 8 SCSS must recompute against the authoring buffer).
+
 ### Playback & scrubbing
 
-Use the **Web Animations API**: `iframeNode.getAnimations()` returns `Animation` objects. Drive playback by setting `animation.currentTime` (scrub), `.play()`/`.pause()`. This is far more robust than the negative-`animation-delay` hack and stays perfectly in sync with the real rendered animation.
+Use the **Web Animations API**: `Document.getAnimations()` (via `getSandboxAnimations` in `sandbox/registry.ts`) returns `Animation` objects. Drive playback by setting `animation.currentTime` (scrub), `.play()`/`.pause()`. This is far more robust than the negative-`animation-delay` hack and stays perfectly in sync with the real rendered animation.
 
+- We **own a single playhead** (`usePlayback`): every live animation is paused and pinned to `animation.currentTime`, so play (a `requestAnimationFrame` loop, looping at the common duration) and scrub share one path. Animations are re-fetched each frame so a mid-play iframe reload is picked up. Until the user engages a control, animations run freely (browser-driven). Playhead/playing live in `uiStore` (transient UI).
 - Playhead position ↔ `currentTime` for all rows, normalized to a common timeline.
-- Selecting a row highlights its `@keyframes`/`transition` in the right panel.
-- Selecting a stop highlights the specific `50% { ... }` block.
+- Selecting a row reveals its `@keyframes`/`transition` in the right panel (switches it to the Code tab + spotlights the block).
+- Selecting a stop highlights the specific `50% { ... }` block. Timeline selection (`{ rowId, stopIndex }`) lives in the shared `selectionStore` alongside `element`.

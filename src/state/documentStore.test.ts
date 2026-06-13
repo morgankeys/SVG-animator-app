@@ -52,6 +52,35 @@ describe('documentStore', () => {
     const { markup, styles } = useDocumentStore.getState();
     expect({ markup, styles }).toEqual(before);
   });
+
+  it('addShape inserts into the markup buffer and returns the new ref', () => {
+    const result = useDocumentStore.getState().addShape('rect', '0/0');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.ref).toBe('0/0/2');
+    expect(useDocumentStore.getState().markup).toContain('<rect x="20" y="20"');
+    expect(useDocumentStore.getState().styles).toBe(sampleDocument().styles);
+  });
+
+  it('addShape is one undoable step', () => {
+    const before = sampleDocument().markup;
+    useDocumentStore.getState().addShape('circle', null);
+    expect(useDocumentStore.getState().markup).not.toBe(before);
+    expect(useDocumentStore.getState().undo()).toBe(true);
+    expect(useDocumentStore.getState().markup).toBe(before);
+  });
+
+  it('a failed addShape records no history', () => {
+    useDocumentStore.setState({
+      markup: '<table><tr><td>x</td></tr></table>',
+      styles: '',
+      past: [],
+      future: [],
+    });
+    const result = useDocumentStore.getState().addShape('rect', '0');
+    expect(result).toEqual({ ok: false, reason: 'markup-write-failed' });
+    expect(useDocumentStore.getState().undo()).toBe(false);
+  });
 });
 
 describe('documentStore — undo/redo', () => {

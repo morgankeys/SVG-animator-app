@@ -1,5 +1,6 @@
-import { writeStyleDeclaration, writeMarkupAttribute } from './edit';
+import { writeStyleDeclaration, writeMarkupAttribute, insertShape } from './edit';
 import { createDocument, sampleDocument } from './document';
+import { parseMarkup } from './markup';
 
 describe('writeStyleDeclaration', () => {
   it('mutates the cascade winner in place, preserving formatting', () => {
@@ -85,5 +86,58 @@ describe('writeMarkupAttribute', () => {
       ok: false,
       reason: 'markup-write-failed',
     });
+  });
+});
+
+describe('insertShape', () => {
+  it('appends inside a selected container, leaving styles untouched', () => {
+    const doc = sampleDocument();
+    const result = insertShape(doc, 'rect', '0/0'); // g#scene is a container
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.ref).toBe('0/0/2');
+    expect(result.document.styles).toBe(doc.styles);
+    expect(parseMarkup(result.document.markup)[0].children[0].children.map((c) => c.tag)).toEqual([
+      'rect',
+      'circle',
+      'rect',
+    ]);
+  });
+
+  it('inserts as a sibling when a leaf is selected', () => {
+    const result = insertShape(sampleDocument(), 'circle', '0/0/1'); // circle#ball is a leaf
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.ref).toBe('0/0/2');
+    expect(parseMarkup(result.document.markup)[0].children[0].children.map((c) => c.tag)).toEqual([
+      'rect',
+      'circle',
+      'circle',
+    ]);
+  });
+
+  it('drops into the first root container when nothing is selected', () => {
+    const result = insertShape(sampleDocument(), 'ellipse', null);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    // svg is the root container; the new ellipse becomes its last child.
+    expect(result.ref).toBe('0/1');
+    expect(parseMarkup(result.document.markup)[0].children.map((c) => c.tag)).toEqual([
+      'g',
+      'ellipse',
+    ]);
+  });
+
+  it('seeds an empty buffer with the new shape', () => {
+    const result = insertShape(createDocument('', ''), 'rect', null);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.ref).toBe('0');
+    expect(parseMarkup(result.document.markup)[0].tag).toBe('rect');
+  });
+
+  it('fails cleanly when the buffer tags cannot be located', () => {
+    const doc = createDocument('<table><tr><td>x</td></tr></table>', '');
+    expect(insertShape(doc, 'rect', '0')).toEqual({ ok: false, reason: 'markup-write-failed' });
   });
 });

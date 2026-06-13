@@ -70,7 +70,7 @@ The single most important phase. Establishes buffers-as-truth + the sandbox rend
 
 ## Phase 5 — Direct shape creation/deletion
 
-- [ ] **5.1 Add shapes.** rect, circle, ellipse, line, polyline, polygon, path, text, group → insert into markup buffer at selection.
+- [x] **5.1 Add shapes.** rect, circle, ellipse, line, polyline, polygon, path, text, group → insert into markup buffer at selection. — `model/shapes.ts` templates + `insertChild`/`insertAfter` buffer-splice helpers (subtree spans via the same pre-order tag correspondence as attribute edits, returns null → warning when ambiguous); `insertShape` places inside a selected container / beside a selected leaf / into the first root when nothing's selected; Elements-panel "Add" menu selects the new element and routes through documentStore (one undoable step).
 - [ ] **5.2 Delete + reorder** in Elements tree → markup mutation.
   - Done when: tree edits round-trip through the markup buffer and render. (Canvas drag-manipulation stays deferred.)
 

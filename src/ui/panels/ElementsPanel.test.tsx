@@ -53,4 +53,25 @@ describe('ElementsPanel', () => {
     expect(screen.queryByText('#ball')).not.toBeInTheDocument();
     expect(screen.getByText('#only')).toBeInTheDocument();
   });
+
+  it('adds a shape via the menu, writing the buffer and selecting the new element', () => {
+    render(<ElementsPanel />);
+    fireEvent.click(screen.getByText('#ball')); // select the leaf circle
+    fireEvent.click(screen.getByRole('button', { name: 'Add shape' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rectangle' }));
+
+    expect(useDocumentStore.getState().markup).toContain('<rect x="20" y="20"');
+    // Inserted as the circle's next sibling, then selected.
+    expect(useSelectionStore.getState().element).toBe('0/0/2');
+    // Menu closes after a choice.
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
+  it('shows a warning when the shape cannot be inserted', () => {
+    useDocumentStore.getState().setMarkup('<table><tr><td>x</td></tr></table>');
+    render(<ElementsPanel />);
+    fireEvent.click(screen.getByRole('button', { name: 'Add shape' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rectangle' }));
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
 });

@@ -74,6 +74,8 @@ docs/       # the specs above
 ## Workflow
 
 - One plan step per session-chunk; the user says "go" per step or phase. Commit each completed step (checkbox + one-line note in `docs/project-plan.md` goes in the same commit).
+- **Commit liberally** — a commit per logical chunk, not one big commit per sub-phase. Work flows through PRs that get squash/merged, so `main` stays clean regardless of how granular the branch history is.
+- **Detailed history is desired, and git is the durable store.** Write rich commit messages (clean headline + a body that drills into the why/how). PR descriptions and review threads live only in GitHub's database — *not* in a clone — so the reliable bridge into git is the **merge/squash commit message**: fold the PR narrative into it. (Extracting old PR discussions from GitHub is a later concern; don't optimize for it now.) `git log --first-parent main` gives the high-level view; per-commit bodies are the drill-in.
 - Work each phase on a branch off `main` (e.g. `phase-4-editing`); merge --ff-only to `main` and delete the branch when the user says the phase batch is done. Remote: `origin` = github.com/morgankeys/SVG-animator-app.
 
 ## Commands

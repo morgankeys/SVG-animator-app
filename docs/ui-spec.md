@@ -49,11 +49,11 @@ Three tabs: **Preview · Code · Split**.
 
 ## Timeline (below center view)
 
-- **Play** and **scrub** controls (driven by the Web Animations API — see [`css-engine.md`](css-engine.md)).
-- **Multiple rows.** Each row corresponds to **one CSS `animation` rule** (e.g. `animation: movement 6s infinite`). Do the same for **`transition`** rules.
-- A row is built from the animation's **duration** plus **transformation points** placed at the `@keyframes` **percentages** (like After Effects, but **no per-property hierarchy** — one row per animation, period).
-- **Row selection** → show the associated `@keyframes` rule in the **right panel**.
-- **Stop selection** (a specific transformation point) → highlight the specific block, e.g. `50% { ... }`, within that `@keyframes` rule.
+- **Play** and **scrub** controls (driven by the Web Animations API — see [`css-engine.md`](css-engine.md)). The red **playhead line is draggable** to scrub (and keyboard-accessible: arrow keys / Home / End). By product decision **nothing animates until the playhead moves** — on load the canvas is frozen at frame 0; pressing play advances it.
+- **Multiple rows.** Each row corresponds to **one CSS `animation`** (e.g. `animation: movement 6s infinite`) **or `transition`** (Phase 7, one row per transitioned property). Transition rows render as a striped bar (no keyframe stops) to distinguish them from animations.
+- An animation row is built from its **duration** plus **transformation points** placed at the `@keyframes` **percentages** (like After Effects, but **no per-property hierarchy** — one row per animation/transition, period).
+- **Row selection** → show the associated `@keyframes` rule (animations) or the `transition` declaration (transitions) in the **right panel**.
+- **Stop selection** (a specific transformation point, animations only) → highlight the specific block, e.g. `50% { ... }`, within that `@keyframes` rule.
 
 ## Right panel — control panel
 

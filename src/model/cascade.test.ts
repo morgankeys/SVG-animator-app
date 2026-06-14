@@ -78,3 +78,47 @@ describe('resolveEffectiveProperties', () => {
     expect(typeof props.get('fill')!.computed).toBe('string');
   });
 });
+
+describe('resolveEffectiveProperties — SCSS round-trip limits (Phase 8.2)', () => {
+  it('flags an inline winner as uneditable (markup-owned)', () => {
+    const props = resolve('#ball { opacity: 0.9; }', '<svg><circle id="ball" style="opacity: 0.5"/></svg>');
+    const opacity = props.get('opacity')!;
+    expect(opacity.editable).toBe(false);
+    expect(opacity.uneditableReason).toBe('inline');
+  });
+
+  it('flags a value built from a SCSS variable as uneditable', () => {
+    const props = resolve('$accent: #4f9cf9;\n#ball { fill: $accent; }');
+    const fill = props.get('fill')!;
+    expect(fill.value).toBe('$accent'); // still shown — honest about the source
+    expect(fill.editable).toBe(false);
+    expect(fill.uneditableReason).toBe('scss-value');
+  });
+
+  it('flags an interpolated value as uneditable', () => {
+    const props = resolve('$n: 4;\n#ball { stroke-width: #{$n}px; }');
+    expect(props.get('stroke-width')!.uneditableReason).toBe('scss-value');
+  });
+
+  it('does not flag plain CSS functions (calc/rgb/var) — they round-trip', () => {
+    const props = resolve('#ball { fill: rgb(1, 2, 3); stroke-width: calc(1px + 2px); }');
+    expect(props.get('fill')!.editable).toBe(true);
+    expect(props.get('fill')!.uneditableReason).toBeUndefined();
+    expect(props.get('stroke-width')!.editable).toBe(true);
+  });
+
+  it('flags a declaration in a nested SCSS rule as uneditable', () => {
+    // `.shape` is matched, but it's written nested inside `#scene`.
+    const props = resolve('#scene {\n  .shape { fill: red; }\n}');
+    const fill = props.get('fill')!;
+    expect(fill.value).toBe('red');
+    expect(fill.editable).toBe(false);
+    expect(fill.uneditableReason).toBe('scss-nested');
+  });
+
+  it('keeps a plain top-level declaration editable', () => {
+    const props = resolve('#ball { fill: red; }');
+    expect(props.get('fill')!.editable).toBe(true);
+    expect(props.get('fill')!.uneditableReason).toBeUndefined();
+  });
+});

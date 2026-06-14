@@ -54,6 +54,20 @@ describe('RightPanel — Rules tab', () => {
     expect(opacity).toBeDisabled();
     expect(screen.getByText('inline')).toBeInTheDocument();
   });
+
+  it('marks a SCSS-variable value read-only and points to the Code tab', () => {
+    useDocumentStore.setState({
+      markup: '<svg><circle id="ball"/></svg>',
+      styles: '$accent: #4f9cf9;\n#ball { fill: $accent; }',
+    });
+    useSelectionStore.setState({ element: '0/0' });
+    render(<RightPanel />);
+    const fill = screen.getByRole('textbox', { name: 'fill' });
+    expect(fill).toHaveValue('$accent'); // shows the source, honestly
+    expect(fill).toBeDisabled();
+    const badge = screen.getByText('SCSS');
+    expect(badge).toHaveAttribute('title', expect.stringContaining('Code tab'));
+  });
 });
 
 describe('RightPanel — Rules tab editing (Phase 4.2)', () => {

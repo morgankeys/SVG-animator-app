@@ -17,6 +17,19 @@ export interface RuleSource {
   important: boolean;
 }
 
+/**
+ * Why a winning declaration can't be safely rewritten through the AST
+ * (docs/css-engine.md "Non-round-trippable cases"). Drives the read-only
+ * degradation + warning in the Rules panel. `undefined` when `editable` is true.
+ */
+export type UneditableReason =
+  /** The winner is the element's inline `style` attribute (markup-owned). */
+  | 'inline'
+  /** The value is an SCSS expression (`$var`, `#{…}`) — its source text isn't the rendered value. */
+  | 'scss-value'
+  /** The declaration lives in a nested/`&` SCSS rule we can't safely target. */
+  | 'scss-nested';
+
 export interface EffectiveProperty {
   property: string;
   /** The winning declared value. */
@@ -27,14 +40,18 @@ export interface EffectiveProperty {
   source: RuleSource | null;
   /** Other matching declarations of this property (→ inline warning). */
   competing: Array<{ selector: string; value: string }>;
-  /** Safe to write back via the AST? Inline styles are markup-owned. */
+  /** Safe to write back via the AST? Inline styles and SCSS constructs are not. */
   editable: boolean;
+  /** Why it isn't editable (UI warning); undefined when `editable`. */
+  uneditableReason?: UneditableReason;
 }
 
 interface Candidate {
   value: string;
   important: boolean;
   inline: boolean;
+  /** The winner sits in an SCSS-nested rule (parent is a rule, or selector uses `&`). */
+  scssNested: boolean;
   spec: Specificity;
   order: number;
   source: RuleSource | null;
@@ -60,6 +77,7 @@ export function resolveEffectiveProperties(
   for (const [property, list] of candidates) {
     list.sort(byCascade); // strongest first
     const winner = list[0];
+    const uneditableReason = editabilityReason(winner);
     result.set(property, {
       property,
       value: winner.value,
@@ -69,10 +87,30 @@ export function resolveEffectiveProperties(
         selector: c.source?.selector ?? INLINE_SELECTOR,
         value: c.value,
       })),
-      editable: !winner.inline,
+      editable: uneditableReason === undefined,
+      uneditableReason,
     });
   }
   return result;
+}
+
+/**
+ * Whether the winning declaration can be rewritten in place, and if not, why
+ * (docs/css-engine.md). Inline styles are markup-owned; SCSS values (`$var`,
+ * `#{…}`) don't equal their rendered text; nested/`&` rules can't be safely
+ * targeted. CSS functions (`calc`, `rgb`, `var`, …) are *not* flagged — they
+ * round-trip as plain values.
+ */
+function editabilityReason(winner: Candidate): UneditableReason | undefined {
+  if (winner.inline) return 'inline';
+  if (hasScssValue(winner.value)) return 'scss-value';
+  if (winner.scssNested) return 'scss-nested';
+  return undefined;
+}
+
+/** A value carrying an SCSS variable reference or interpolation — not its rendered form. */
+function hasScssValue(value: string): boolean {
+  return /\$[\w-]/.test(value) || value.includes('#{');
 }
 
 function collectCandidates(ast: Root, element: Element): Map<string, Candidate[]> {
@@ -91,6 +129,7 @@ function collectCandidates(ast: Root, element: Element): Map<string, Candidate[]
     if (isKeyframeBlock(rule)) return;
     const spec = matchedSpecificity(element, rule);
     if (!spec) return;
+    const scssNested = isScssNested(rule);
 
     let declIndex = -1;
     rule.each((node) => {
@@ -101,6 +140,7 @@ function collectCandidates(ast: Root, element: Element): Map<string, Candidate[]
         value: decl.value,
         important: Boolean(decl.important),
         inline: false,
+        scssNested,
         spec,
         order: order++,
         source: {
@@ -122,6 +162,7 @@ function collectCandidates(ast: Root, element: Element): Map<string, Candidate[]
         value: inlineStyle.getPropertyValue(property),
         important: inlineStyle.getPropertyPriority(property) === 'important',
         inline: true,
+        scssNested: false,
         spec: [0, 0, 0],
         order: order++,
         source: null,
@@ -130,6 +171,18 @@ function collectCandidates(ast: Root, element: Element): Map<string, Candidate[]
   }
 
   return candidates;
+}
+
+/**
+ * A rule whose selector is partial under SCSS: nested inside another rule (so
+ * its written selector is relative, not what the browser matches), or using the
+ * `&` parent reference. The cascade still matches it best-effort, but we can't
+ * safely rewrite a declaration there, so the winner is flagged read-only.
+ * Rules inside at-rules (`@media`) are *not* nested in this sense — their
+ * selectors are absolute and round-trippable.
+ */
+function isScssNested(rule: Rule): boolean {
+  return rule.parent?.type === 'rule' || rule.selector.includes('&');
 }
 
 /** Rules inside @keyframes ("0% { … }") are stops, not cascade participants. */

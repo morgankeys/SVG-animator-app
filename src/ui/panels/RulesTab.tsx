@@ -137,6 +137,25 @@ function GeometryGroup({
   );
 }
 
+/** Read-only-control affordance per non-round-trippable reason (docs/css-engine.md). */
+const UNEDITABLE: Record<NonNullable<EffectiveProperty['uneditableReason']>, {
+  badge: string;
+  hint: string;
+}> = {
+  inline: {
+    badge: 'inline',
+    hint: "Set by the element's style attribute (markup-owned) — edit it in the markup.",
+  },
+  'scss-value': {
+    badge: 'SCSS',
+    hint: 'Value comes from a SCSS expression ($variable or #{…}) — edit it in the Code tab.',
+  },
+  'scss-nested': {
+    badge: 'SCSS',
+    hint: "Declared in a nested SCSS rule that can't be safely rewritten here — edit it in the Code tab.",
+  },
+};
+
 function CssPropertyRow({
   prop,
   entry,
@@ -148,7 +167,8 @@ function CssPropertyRow({
   placeholder: string;
   onCommit: (property: string, value: string) => string | null;
 }) {
-  const inline = entry !== undefined && entry.source === null;
+  const reason = entry?.uneditableReason;
+  const uneditable = reason ? UNEDITABLE[reason] : null;
   const competingHint =
     entry && entry.competing.length > 0
       ? `Also set by: ${entry.competing.map((c) => `${c.selector} (${c.value})`).join(', ')}`
@@ -161,8 +181,8 @@ function CssPropertyRow({
       value={entry?.value ?? ''}
       placeholder={placeholder}
       disabled={entry !== undefined && !entry.editable}
-      badge={inline ? 'inline' : undefined}
-      badgeHint="Set by the element's style attribute (markup-owned)"
+      badge={uneditable?.badge}
+      badgeHint={uneditable?.hint}
       competingHint={competingHint}
       onCommit={(v) => onCommit(prop, v)}
     />
@@ -248,7 +268,7 @@ function describeFailure(result: EditResult): string | null {
   if (result.ok) return null;
   switch (result.reason) {
     case 'not-editable':
-      return "Set by the element's style attribute — edit it in the markup.";
+      return "This value can't be safely rewritten here — edit it in the Code tab or markup.";
     case 'styles-unparsable':
       return 'Styles buffer could not be parsed.';
     case 'markup-write-failed':

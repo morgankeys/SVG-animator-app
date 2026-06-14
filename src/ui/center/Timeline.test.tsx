@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { Timeline } from './Timeline';
 import { useDocumentStore } from '../../state/documentStore';
 import { useSelectionStore } from '../../state/selectionStore';
@@ -60,6 +60,38 @@ describe('Timeline', () => {
     render(<Timeline />);
     fireEvent.change(screen.getByLabelText('Scrub timeline'), { target: { value: '1000' } });
     expect(useUiStore.getState().playheadMs).toBe(1000);
+    expect(useUiStore.getState().playing).toBe(false);
+  });
+
+  it('dragging the playhead scrubs to the pointer position and pauses', () => {
+    // jsdom has no layout; pin a known track geometry (body 1000px wide).
+    const rect = { left: 0, top: 0, right: 1000, bottom: 100, width: 1000, height: 100, x: 0, y: 0 };
+    const spy = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockReturnValue({ ...rect, toJSON: () => rect } as DOMRect);
+    useUiStore.setState({ playing: true });
+    render(<Timeline />);
+    // Track spans 144px (label 132 + margin 12) to 856px → width 844px. clientX
+    // 566 is halfway across (144 + 422) → playhead at half of 2000ms = 1000ms.
+    // jsdom has no PointerEvent, but MouseEvent carries clientX and React
+    // delegates `pointerdown` to a native listener, so dispatch one directly.
+    const slider = screen.getByRole('slider', { name: 'Playhead' });
+    const event = new MouseEvent('pointerdown', { bubbles: true, clientX: 566 });
+    Object.defineProperty(event, 'pointerId', { value: 1 });
+    act(() => {
+      slider.dispatchEvent(event);
+    });
+    expect(useUiStore.getState().playheadMs).toBeCloseTo(1000, 0);
+    expect(useUiStore.getState().playing).toBe(false);
+    spy.mockRestore();
+  });
+
+  it('arrow keys step the playhead and pause', () => {
+    useUiStore.setState({ playing: true, playheadMs: 0 });
+    render(<Timeline />);
+    fireEvent.keyDown(screen.getByRole('slider', { name: 'Playhead' }), { key: 'ArrowRight' });
+    // Sample total is 2000ms → default step is totalMs/100 = 20ms.
+    expect(useUiStore.getState().playheadMs).toBe(20);
     expect(useUiStore.getState().playing).toBe(false);
   });
 });

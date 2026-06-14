@@ -19,22 +19,26 @@ beforeEach(() => {
   mocked.mockReturnValue([]);
 });
 
-describe('usePlayback — free-run tracking', () => {
-  it('follows the live animation while not playing', async () => {
-    mocked.mockReturnValue([fakeAnimation(500)]);
+describe('usePlayback — pinned while not playing', () => {
+  it('freezes a live animation at the playhead instead of letting it autoplay', async () => {
+    const anim = fakeAnimation(500); // the browser would run it freely to 500ms+
+    mocked.mockReturnValue([anim]);
+    useUiStore.setState({ playing: false, playheadMs: 0 });
     renderHook(() => usePlayback(2000));
-    // The browser-driven animation sits at 500ms → the playhead should track it.
-    await waitFor(() => expect(useUiStore.getState().playheadMs).toBe(500));
+    await waitFor(() => expect(anim.pause).toHaveBeenCalled());
+    expect(anim.currentTime).toBe(0); // pinned to the playhead, not free-running
+    expect(useUiStore.getState().playheadMs).toBe(0); // playhead stays put
   });
 
-  it('wraps the followed time into the timeline span', async () => {
-    // An infinite animation's currentTime grows past one iteration; fold it back.
-    mocked.mockReturnValue([fakeAnimation(2500)]);
+  it('pins animations to the current (e.g. scrubbed) playhead position', async () => {
+    const anim = fakeAnimation(0);
+    mocked.mockReturnValue([anim]);
+    useUiStore.setState({ playing: false, playheadMs: 750 });
     renderHook(() => usePlayback(2000));
-    await waitFor(() => expect(useUiStore.getState().playheadMs).toBe(500));
+    await waitFor(() => expect(anim.currentTime).toBe(750));
   });
 
-  it('does not touch the playhead when no live animation exists', async () => {
+  it('does nothing when no live animation exists', async () => {
     renderHook(() => usePlayback(2000));
     await act(() => new Promise((r) => requestAnimationFrame(() => r(undefined))));
     expect(useUiStore.getState().playheadMs).toBe(0);

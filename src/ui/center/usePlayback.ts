@@ -7,12 +7,13 @@ import { getSandboxAnimations } from '../../sandbox/registry';
  * live Web Animation by pausing it and setting `currentTime`, so the rendered
  * frame always matches the playhead — scrubbing and playback share one path.
  *
- * On play we advance the playhead with requestAnimationFrame, looping at
- * `totalMs`; animations are re-fetched each frame so a mid-play frame reload is
- * picked up. While we're NOT playing the animation runs freely (browser-driven,
- * e.g. on load), and we let the playhead *follow* it — reading `currentTime`
- * each frame — so the timeline mirrors what's on screen and pressing play
- * resumes from there instead of snapping the animation back to a stale playhead.
+ * The playhead is always the source of truth: an animation plays iff the
+ * playhead is moving. On play we advance the playhead with requestAnimationFrame
+ * (looping at `totalMs`) and pin every animation to it; animations are re-fetched
+ * each frame so a mid-play frame reload is picked up. While we're NOT playing we
+ * keep pinning them to the (static) playhead, so the canvas stays frozen at the
+ * current frame — including the sample on load, and any animation the browser
+ * would otherwise autoplay after an iframe reload.
  */
 export function usePlayback(totalMs: number) {
   const playing = useUiStore((s) => s.playing);
@@ -51,27 +52,21 @@ export function usePlayback(totalMs: number) {
     return () => cancelAnimationFrame(frame);
   }, [playing, totalMs, setPlayheadMs, applyFrame]);
 
-  // While paused/free-running, follow the live animation so the playhead tracks
-  // what the browser renders (and play resumes without a jump). No-op when no
-  // live animation exists yet (frame not loaded, or jsdom in tests).
+  // While not playing, keep pinning animations to the static playhead so the
+  // canvas stays frozen at the current frame (the browser would otherwise
+  // autoplay them on load / after an iframe reload). Re-pin each frame to catch
+  // animations created by a reload. No-op when none exist (frame not loaded /
+  // jsdom in tests).
   useEffect(() => {
     if (playing) return;
     let frame = 0;
     const tick = () => {
-      const [sample] = getSandboxAnimations();
-      if (sample != null) {
-        const raw = Number(sample.currentTime ?? 0);
-        const ms = totalMs > 0 ? ((raw % totalMs) + totalMs) % totalMs : 0;
-        if (ms !== headRef.current) {
-          headRef.current = ms;
-          setPlayheadMs(ms);
-        }
-      }
+      applyFrame(headRef.current);
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [playing, totalMs, setPlayheadMs]);
+  }, [playing, applyFrame]);
 
   const play = useCallback(() => setPlaying(true), [setPlaying]);
   const pause = useCallback(() => setPlaying(false), [setPlaying]);

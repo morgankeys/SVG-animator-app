@@ -90,31 +90,35 @@ Parsed in `model/animation.ts`:
 - **`animation` / `animation-*`** on an element → `{ name, duration, delay, iteration, timing, direction, fill }`.
 - **`transition` / `transition-*`** → `{ property, duration, delay, timing }`.
 
-Timeline row model (as implemented in Phase 6 for animations; transitions reuse the shape in Phase 7):
+Timeline row model (animations in Phase 6, transitions in Phase 7 — both share the shape):
 
 ```ts
 TextRange { from: number, to: number }   // char span in the styles buffer
 
 TimelineRow {
   kind: "animation" | "transition"
-  rowId: string                 // stable within one projection: `${elementRef}::${index}`
+  rowId: string                 // stable within one projection. animations: `${elementRef}::${index}`;
+                                 // transitions: `${elementRef}::t${index}` (so the two kinds never collide)
   elementRef: ElementRef
-  label: string                 // animation name (or, in P7, the transitioned property)
+  label: string                 // animation name, or the transitioned property (P7)
   durationMs: number
   delayMs: number
-  iterations: number            // Infinity for `infinite`
-  keyframesRange: TextRange | null   // the @keyframes block in the buffer (null if missing)
-  stops: Array<{ atPercent: number, range: TextRange }>   // animations only
+  iterations: number            // Infinity for `infinite`; always 1 for transitions
+  keyframesRange: TextRange | null   // the @keyframes block (animations; null for transitions/missing)
+  declarationRange: TextRange | null // the `transition` declaration to spotlight (transitions; null for animations)
+  stops: Array<{ atPercent: number, range: TextRange }>   // animations only ([] for transitions)
 }
 ```
 
-Rows are a **pure projection** of the buffers (`model/animation.ts` → `buildTimelineRows`), surfaced to the UI by the `useTimelineRows` hook so both the Timeline strip and the right-panel linking share one derivation. Which animation applies to which element is a **cascade** question — resolved via `resolveEffectiveProperties`, never by mapping a rule directly to an element. Stops carry a `TextRange` (rather than an opaque ref) so the Code tab can spotlight the exact block; those offsets come from PostCSS `source` positions and are valid against the **plain-CSS** styles buffer (Phase 8 SCSS must recompute against the authoring buffer).
+Rows are a **pure projection** of the buffers (`model/animation.ts` → `buildTimelineRows`), surfaced to the UI by the `useTimelineRows` hook so both the Timeline strip and the right-panel linking share one derivation. Which animation/transition applies to which element is a **cascade** question — resolved via `resolveEffectiveProperties`, never by mapping a rule directly to an element. Stops carry a `TextRange` (rather than an opaque ref) so the Code tab can spotlight the exact block; those offsets come from PostCSS `source` positions and are valid against the **plain-CSS** styles buffer (Phase 8 SCSS must recompute against the authoring buffer).
+
+**Transitions (Phase 7)** mirror the animation pipeline: `resolveElementTransitions` parses the `transition` shorthand per comma-segment (paren-aware) and lets longhands override, exactly like `resolveElementAnimations`; `transition-property` defaults to `all`, and `none` (shorthand or property entry) is skipped. A transition has no `@keyframes`, so it links to its defining `transition` declaration via `declarationRange` (resolved from the cascade winner's `source` by a rule/decl walk that matches `cascade.ts` indexing) instead of `keyframesRange`/stops. Note transitions only spawn a live `Animation` when a property actually changes, so they don't appear in `getSandboxAnimations()` at rest — the row is a static projection, not a playable track.
 
 ### Playback & scrubbing
 
 Use the **Web Animations API**: `Document.getAnimations()` (via `getSandboxAnimations` in `sandbox/registry.ts`) returns `Animation` objects. Drive playback by setting `animation.currentTime` (scrub), `.play()`/`.pause()`. This is far more robust than the negative-`animation-delay` hack and stays perfectly in sync with the real rendered animation.
 
-- We **own a single playhead** (`usePlayback`): every live animation is paused and pinned to `animation.currentTime`, so play (a `requestAnimationFrame` loop, looping at the common duration) and scrub share one path. Animations are re-fetched each frame so a mid-play iframe reload is picked up. Until the user engages a control, animations run freely (browser-driven). Playhead/playing live in `uiStore` (transient UI).
-- Playhead position ↔ `currentTime` for all rows, normalized to a common timeline.
-- Selecting a row reveals its `@keyframes`/`transition` in the right panel (switches it to the Code tab + spotlights the block).
+- The **playhead is the single source of truth; an animation plays iff the playhead is moving** (`usePlayback`). Every live animation is paused and pinned to `animation.currentTime`, so play (a `requestAnimationFrame` loop, looping at the common duration) and scrub share one path. Animations are re-fetched each frame so a mid-play iframe reload is picked up. **While not playing, a second rAF loop keeps pinning animations to the static playhead** so the canvas stays frozen at the current frame — by product decision nothing animates on load until the user presses play (this also defeats the browser autoplaying the sample on load / after an iframe reload). Playhead/playing live in `uiStore` (transient UI).
+- Playhead position ↔ `currentTime` for all rows, normalized to a common timeline. The **playhead line itself is draggable** (`role="slider"`): pointer-drag maps cursor x onto the track region (same geometry constants the playhead is laid out with — keep them in sync) and routes through the same `scrub`; arrow keys / Home / End step it for keyboard scrubbing.
+- Selecting a row reveals its `@keyframes` (animations) or `transition` declaration (transitions) in the right panel (switches it to the Code tab + spotlights the block).
 - Selecting a stop highlights the specific `50% { ... }` block. Timeline selection (`{ rowId, stopIndex }`) lives in the shared `selectionStore` alongside `element`.

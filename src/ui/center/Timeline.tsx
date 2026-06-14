@@ -1,3 +1,4 @@
+import { useCallback, useRef } from 'react';
 import { useSelectionStore } from '../../state/selectionStore';
 import { useUiStore } from '../../state/uiStore';
 import { useTimelineRows, timelineDurationMs } from './useTimelineRows';
@@ -19,12 +20,55 @@ export function Timeline() {
   const rows = useTimelineRows();
   const totalMs = timelineDurationMs(rows);
   const { playing, playheadMs, play, pause, scrub } = usePlayback(totalMs);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  // Map a pointer x onto the track region (the same span the playhead is laid
+  // out across: body width minus the label column and the track's side margins).
+  const scrubToClientX = useCallback(
+    (clientX: number) => {
+      const body = bodyRef.current;
+      if (!body) return;
+      const rect = body.getBoundingClientRect();
+      const trackLeft = rect.left + LABEL_WIDTH + TRACK_MARGIN;
+      const trackWidth = rect.width - (LABEL_WIDTH + TRACK_MARGIN * 2);
+      if (trackWidth <= 0) return;
+      const fraction = Math.min(1, Math.max(0, (clientX - trackLeft) / trackWidth));
+      scrub(fraction * totalMs);
+    },
+    [scrub, totalMs],
+  );
+
+  // Drag the playhead: capture the pointer so the drag survives leaving the line.
+  const onPlayheadPointerDown = (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    scrubToClientX(e.clientX);
+  };
+  const onPlayheadPointerMove = (e: React.PointerEvent) => {
+    if (e.currentTarget.hasPointerCapture?.(e.pointerId)) scrubToClientX(e.clientX);
+  };
+  const onPlayheadKeyDown = (e: React.KeyboardEvent) => {
+    const step = e.shiftKey ? totalMs / 10 : Math.max(10, totalMs / 100);
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      scrub(Math.max(0, playheadMs - step));
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      scrub(Math.min(totalMs, playheadMs + step));
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      scrub(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      scrub(totalMs);
+    }
+  };
 
   if (rows.length === 0) {
     return (
       <section className="timeline panel">
         <header className="panel-header">Timeline</header>
-        <div className="panel-body placeholder">No animations yet</div>
+        <div className="panel-body placeholder">No animations or transitions yet</div>
       </section>
     );
   }
@@ -58,7 +102,7 @@ export function Timeline() {
           </span>
         </div>
       </header>
-      <div className="panel-body timeline-body">
+      <div className="panel-body timeline-body" ref={bodyRef}>
         <div className="timeline-rows">
           {rows.map((row) => (
             <TimelineTrack key={row.rowId} row={row} totalMs={totalMs} />
@@ -66,11 +110,21 @@ export function Timeline() {
         </div>
         <div
           className="timeline-playhead"
+          role="slider"
+          tabIndex={0}
+          aria-label="Playhead"
+          aria-valuemin={0}
+          aria-valuemax={Math.round(totalMs)}
+          aria-valuenow={Math.round(playheadMs)}
+          aria-valuetext={formatSeconds(playheadMs)}
           style={{
             left: `calc(${LABEL_WIDTH + TRACK_MARGIN}px + ${playheadMs / totalMs} * (100% - ${
               LABEL_WIDTH + TRACK_MARGIN * 2
             }px))`,
           }}
+          onPointerDown={onPlayheadPointerDown}
+          onPointerMove={onPlayheadPointerMove}
+          onKeyDown={onPlayheadKeyDown}
         />
       </div>
     </section>
@@ -101,18 +155,18 @@ function TimelineTrack({ row, totalMs }: { row: TimelineRow; totalMs: number }) 
   const width = `${Math.max((row.durationMs / totalMs) * 100, 0.5)}%`;
 
   return (
-    <div className={`timeline-row${rowSelected ? ' selected' : ''}`}>
+    <div className={`timeline-row timeline-row--${row.kind}${rowSelected ? ' selected' : ''}`}>
       <button
         type="button"
         className="timeline-row-label"
         onClick={selectRow}
-        title={`${row.label} on ${row.elementRef}`}
+        title={`${row.kind} ${row.label} on ${row.elementRef}`}
       >
         <span className="timeline-row-name">{row.label}</span>
         <span className="timeline-row-meta">{formatDuration(row)}</span>
       </button>
       <div className="timeline-track-area" onClick={selectRow}>
-        <div className="timeline-track" style={{ left, width }}>
+        <div className={`timeline-track timeline-track--${row.kind}`} style={{ left, width }}>
           {row.stops.map((stop, index) => (
             <button
               key={`${index}-${stop.atPercent}`}

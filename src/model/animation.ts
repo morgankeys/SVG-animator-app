@@ -6,11 +6,13 @@
  *
  * Which animations apply to which element is a cascade question, so we lean on
  * the same resolver the Rules panel uses (model/cascade.ts) rather than
- * re-deriving it. Transitions are Phase 7; this module is animations only.
+ * re-deriving it. Transitions (Phase 7) share the row shape: one row per
+ * transitioned property, drawn as a bar (delay → delay+duration) with no stops,
+ * linking to its `transition` declaration instead of a `@keyframes` block.
  */
-import type { Root, AtRule, Rule } from '../lib/postcss';
+import type { Root, AtRule, Rule, Declaration } from '../lib/postcss';
 import { resolveEffectiveProperties } from './cascade';
-import type { EffectiveProperty } from './cascade';
+import type { EffectiveProperty, RuleSource } from './cascade';
 import { elementToRef } from './markup';
 import type { ElementRef } from './markup';
 
@@ -52,19 +54,38 @@ export interface TimelineStop {
   range: TextRange;
 }
 
-/** One Timeline track: a single `animation` applied to a single element. */
+/** A single resolved `transition` definition (one comma-segment of the value). */
+export interface TransitionSpec {
+  /** The transitioned property (`opacity`, `all`, …) — also the row label. */
+  property: string;
+  durationMs: number;
+  delayMs: number;
+  timingFunction: string;
+}
+
+/**
+ * One Timeline track: a single `animation` or `transition` applied to a single
+ * element. Animations carry `@keyframes` stops; transitions have none and link
+ * to their `transition` declaration via `declarationRange` instead.
+ */
 export interface TimelineRow {
-  kind: 'animation';
-  /** Stable within one projection: `${elementRef}::${animationIndex}`. */
+  kind: 'animation' | 'transition';
+  /**
+   * Stable within one projection. Animations: `${elementRef}::${index}`;
+   * transitions: `${elementRef}::t${index}` (so the two kinds never collide).
+   */
   rowId: string;
   elementRef: ElementRef;
-  /** The animation name (also the row label). */
+  /** The animation name or transitioned property (also the row label). */
   label: string;
   durationMs: number;
   delayMs: number;
+  /** Iteration count; `Infinity` for `infinite`. Always 1 for transitions. */
   iterations: number;
-  /** The referenced `@keyframes` block, or null when no such rule exists. */
+  /** The referenced `@keyframes` block (animations), null for transitions/missing. */
   keyframesRange: TextRange | null;
+  /** The defining declaration to spotlight (transitions); null for animations. */
+  declarationRange: TextRange | null;
   stops: TimelineStop[];
 }
 
@@ -114,11 +135,70 @@ export function buildTimelineRows(ast: Root, body: ParentNode): TimelineRow[] {
         delayMs: spec.delayMs,
         iterations: spec.iterations,
         keyframesRange: kf?.range ?? null,
+        declarationRange: null,
         stops: kf ? kf.stops.map((s) => ({ atPercent: s.percent, range: s.range })) : [],
+      });
+    });
+    // Each transitioned property is its own row, linking to where it's declared.
+    const transitionSource = transitionDeclarationSource(effective);
+    resolveElementTransitions(effective).forEach((spec, index) => {
+      rows.push({
+        kind: 'transition',
+        rowId: `${ref}::t${index}`,
+        elementRef: ref,
+        label: spec.property,
+        durationMs: spec.durationMs,
+        delayMs: spec.delayMs,
+        iterations: 1,
+        keyframesRange: null,
+        declarationRange: declarationRange(ast, transitionSource),
+        stops: [],
       });
     });
   }
   return rows;
+}
+
+/**
+ * The declaration we link a transition row to: prefer the `transition`
+ * shorthand, else the first present longhand. Inline winners have no AST node.
+ */
+function transitionDeclarationSource(
+  effective: Map<string, EffectiveProperty>,
+): RuleSource | null {
+  for (const property of [
+    'transition',
+    'transition-property',
+    'transition-duration',
+    'transition-delay',
+    'transition-timing-function',
+  ]) {
+    const prop = effective.get(property);
+    if (prop) return prop.source;
+  }
+  return null;
+}
+
+/**
+ * Resolve a declaration's styles-buffer span from its cascade `source`. Walks
+ * rules in the same order cascade.ts indexes them (every rule, `@keyframes`
+ * stop blocks included), then counts declarations to `declIndex`.
+ */
+function declarationRange(ast: Root, source: RuleSource | null): TextRange | null {
+  if (!source) return null;
+  let ruleIndex = -1;
+  let found: TextRange | null = null;
+  ast.walkRules((rule) => {
+    ruleIndex += 1;
+    if (ruleIndex !== source.ruleIndex) return;
+    let declIndex = -1;
+    rule.each((node) => {
+      if (node.type !== 'decl') return;
+      declIndex += 1;
+      if (declIndex === source.declIndex) found = rangeOf(node as Declaration);
+    });
+  });
+  return found;
 }
 
 /** Collect every `@keyframes` block by name (last definition wins, as in CSS). */
@@ -154,7 +234,7 @@ function parsePercent(selector: string): number | null {
   return match ? parseFloat(match[1]) : null;
 }
 
-function rangeOf(node: AtRule | Rule): TextRange {
+function rangeOf(node: AtRule | Rule | Declaration): TextRange {
   return { from: node.source?.start?.offset ?? 0, to: node.source?.end?.offset ?? 0 };
 }
 
@@ -254,6 +334,79 @@ function parseAnimationSegment(segment: string): ParsedSegment {
 
 function isTimingFunction(lower: string): boolean {
   return TIMING_KEYWORDS.has(lower) || lower.startsWith('cubic-bezier(') || lower.startsWith('steps(');
+}
+
+/**
+ * Resolve the transitions applied to one element, mirroring
+ * `resolveElementAnimations`: parse the `transition` shorthand per comma-segment,
+ * then let any present longhand (`transition-duration`, …) override the matching
+ * segment. Returns one spec per transitioned property; `transition: none` (or a
+ * `transition-property: none` entry) is skipped. Returns `[]` when the element
+ * declares no transition at all (so we don't invent rows for every element).
+ */
+export function resolveElementTransitions(
+  effective: Map<string, EffectiveProperty>,
+): TransitionSpec[] {
+  const shorthand = effective.get('transition')?.value;
+  const base = shorthand ? splitSegments(shorthand).map(parseTransitionSegment) : [];
+
+  const properties = longhandList(effective, 'transition-property');
+  const durations = longhandList(effective, 'transition-duration');
+  const delays = longhandList(effective, 'transition-delay');
+  const timings = longhandList(effective, 'transition-timing-function');
+
+  // Nothing references a transition on this element → no rows.
+  if (!shorthand && !properties && !durations && !delays && !timings) return [];
+
+  const count = Math.max(
+    base.length,
+    properties?.length ?? 0,
+    durations?.length ?? 0,
+    delays?.length ?? 0,
+    timings?.length ?? 0,
+  );
+
+  const specs: TransitionSpec[] = [];
+  for (let i = 0; i < count; i++) {
+    const b = base[i] ?? {};
+    // `transition-property` defaults to `all` when only timing longhands are set.
+    const property = at(properties, i) ?? b.property ?? 'all';
+    if (property.toLowerCase() === 'none') continue;
+    specs.push({
+      property,
+      durationMs: parseTime(at(durations, i)) ?? b.duration ?? 0,
+      delayMs: parseTime(at(delays, i)) ?? b.delay ?? 0,
+      timingFunction: at(timings, i) ?? b.timingFunction ?? ANIMATION_DEFAULTS.timingFunction,
+    });
+  }
+  return specs;
+}
+
+interface ParsedTransition {
+  property?: string;
+  duration?: number;
+  delay?: number;
+  timingFunction?: string;
+}
+
+/** Parse one comma-segment of a `transition` shorthand into its longhand parts. */
+function parseTransitionSegment(segment: string): ParsedTransition {
+  const parsed: ParsedTransition = {};
+  for (const token of splitTokens(segment)) {
+    const time = parseTime(token);
+    if (time !== null) {
+      if (parsed.duration === undefined) parsed.duration = time;
+      else if (parsed.delay === undefined) parsed.delay = time;
+      continue;
+    }
+    if (isTimingFunction(token.toLowerCase())) {
+      parsed.timingFunction = token;
+    } else if (parsed.property === undefined) {
+      // The first non-time, non-timing token is the property (incl. `all`/`none`).
+      parsed.property = token;
+    }
+  }
+  return parsed;
 }
 
 function longhandList(

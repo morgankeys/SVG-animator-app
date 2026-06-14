@@ -207,7 +207,40 @@ body {
   bottom: 0;
   width: 1px;
   background: #f48771;
-  pointer-events: none;
+  cursor: ew-resize;
+  touch-action: none;
+  z-index: 2;
+}
+
+/* Widen the grab area to ±4px without shifting the 1px line. */
+.timeline-playhead::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  right: -4px;
+}
+
+/* A small grip at the top so the line reads as draggable. */
+.timeline-playhead::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 9px;
+  height: 7px;
+  transform: translateX(-50%);
+  border-radius: 0 0 2px 2px;
+  background: #f48771;
+}
+
+.timeline-playhead:focus-visible {
+  outline: none;
+}
+
+.timeline-playhead:focus-visible::after {
+  box-shadow: 0 0 0 2px rgba(244, 135, 113, 0.6);
 }
 
 .timeline-rows {
@@ -272,6 +305,17 @@ body {
 
 .timeline-row.selected .timeline-track {
   opacity: 0.8;
+}
+
+/* Transitions have no keyframe stops; a striped bar tells them apart from animations. */
+.timeline-track--transition {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--accent),
+    var(--accent) 4px,
+    transparent 4px,
+    transparent 8px
+  );
 }
 
 .timeline-stop {

@@ -130,4 +130,13 @@ describe('RightPanel — Code tab', () => {
     expect(code.textContent).toContain('@keyframes bounce');
     expect(code.querySelector('.cm-content')).toHaveAttribute('contenteditable', 'false');
   });
+
+  it('spotlights a selected transition row at its `transition` declaration', () => {
+    // The sample's #ground (ref 0/0/0) carries `transition: fill 0.4s ease-in-out`.
+    useUiStore.setState({ rightTab: 'code' });
+    useSelectionStore.setState({ timeline: { rowId: '0/0/0::t0', stopIndex: null } });
+    const { container } = render(<RightPanel />);
+    const mark = container.querySelector('.cm-range-highlight');
+    expect(mark?.textContent).toContain('transition: fill 0.4s ease-in-out');
+  });
 });

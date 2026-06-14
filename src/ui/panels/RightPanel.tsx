@@ -28,9 +28,11 @@ export function RightPanel() {
     if (!timeline) return null;
     const row = rows.find((r) => r.rowId === timeline.rowId);
     if (!row) return null;
+    // Row select spotlights the @keyframes (animations) or the `transition`
+    // declaration; stop select (animations only) narrows to that stop's block.
     return timeline.stopIndex !== null
       ? (row.stops[timeline.stopIndex]?.range ?? null)
-      : row.keyframesRange;
+      : (row.keyframesRange ?? row.declarationRange);
   }, [timeline, rows]);
 
   return (

@@ -7,9 +7,13 @@ import { getSandboxAnimations } from '../../sandbox/registry';
  * live Web Animation by pausing it and setting `currentTime`, so the rendered
  * frame always matches the playhead — scrubbing and playback share one path.
  *
- * Until the user engages a control, animations run freely (browser-driven). On
- * play we advance the playhead with requestAnimationFrame, looping at `totalMs`;
- * animations are re-fetched each frame so a mid-play frame reload is picked up.
+ * The playhead is always the source of truth: an animation plays iff the
+ * playhead is moving. On play we advance the playhead with requestAnimationFrame
+ * (looping at `totalMs`) and pin every animation to it; animations are re-fetched
+ * each frame so a mid-play frame reload is picked up. While we're NOT playing we
+ * keep pinning them to the (static) playhead, so the canvas stays frozen at the
+ * current frame — including the sample on load, and any animation the browser
+ * would otherwise autoplay after an iframe reload.
  */
 export function usePlayback(totalMs: number) {
   const playing = useUiStore((s) => s.playing);
@@ -47,6 +51,22 @@ export function usePlayback(totalMs: number) {
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, [playing, totalMs, setPlayheadMs, applyFrame]);
+
+  // While not playing, keep pinning animations to the static playhead so the
+  // canvas stays frozen at the current frame (the browser would otherwise
+  // autoplay them on load / after an iframe reload). Re-pin each frame to catch
+  // animations created by a reload. No-op when none exist (frame not loaded /
+  // jsdom in tests).
+  useEffect(() => {
+    if (playing) return;
+    let frame = 0;
+    const tick = () => {
+      applyFrame(headRef.current);
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [playing, applyFrame]);
 
   const play = useCallback(() => setPlaying(true), [setPlaying]);
   const pause = useCallback(() => setPlaying(false), [setPlaying]);

@@ -12,15 +12,23 @@ const tabs: Array<{ id: RightTab; label: string }> = [
   { id: 'code', label: 'Code' },
 ];
 
+// Consecutive Code-tab edits coalesce into one undo step under this key (the
+// store resets it when any other edit, undo, or redo intervenes). CodeMirror
+// keeps its own fine-grained history for in-editor undo.
+const CODE_EDIT_KEY = 'right-code-scss';
+
 /**
- * Right panel: Rules (controls) / Code (the styles buffer — source of truth).
- * Selecting a Timeline row/stop switches to Code and spotlights the linked
- * `@keyframes` block (or its specific stop) in the buffer (docs/ui-spec.md, 6.4).
+ * Right panel: Rules (controls) / Code (the SCSS styles buffer — source of
+ * truth). The Code tab is an editable SCSS surface (Phase 8.1): edits write
+ * straight back to the buffer, which drives the compile pipeline and re-projects
+ * every panel. Selecting a Timeline row/stop switches to Code and spotlights the
+ * linked `@keyframes` block (or its specific stop) in the buffer (docs/ui-spec.md, 6.4).
  */
 export function RightPanel() {
   const rightTab = useUiStore((s) => s.rightTab);
   const setRightTab = useUiStore((s) => s.setRightTab);
   const styles = useDocumentStore((s) => s.styles);
+  const setStyles = useDocumentStore((s) => s.setStyles);
   const timeline = useSelectionStore((s) => s.timeline);
   const rows = useTimelineRows();
 
@@ -53,7 +61,12 @@ export function RightPanel() {
       {rightTab === 'rules' ? (
         <RulesTab />
       ) : (
-        <CodeView value={styles} language="css" highlight={highlight} />
+        <CodeView
+          value={styles}
+          language="scss"
+          highlight={highlight}
+          onChange={(next) => setStyles(next, CODE_EDIT_KEY)}
+        />
       )}
     </section>
   );

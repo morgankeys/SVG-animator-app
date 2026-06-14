@@ -1,4 +1,5 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
+import { EditorView } from 'codemirror';
 import { RightPanel } from './RightPanel';
 import { useDocumentStore } from '../../state/documentStore';
 import { useSelectionStore } from '../../state/selectionStore';
@@ -137,12 +138,27 @@ describe('RightPanel — Rules tab editing (Phase 4.2)', () => {
 });
 
 describe('RightPanel — Code tab', () => {
-  it('shows the styles buffer, highlighted and read-only', () => {
+  it('shows the styles buffer as an editable SCSS surface', () => {
     render(<RightPanel />);
     fireEvent.click(screen.getByRole('button', { name: 'Code' }));
     const code = screen.getByTestId('code-view');
     expect(code.textContent).toContain('@keyframes bounce');
-    expect(code.querySelector('.cm-content')).toHaveAttribute('contenteditable', 'false');
+    expect(code.querySelector('.cm-content')).toHaveAttribute('contenteditable', 'true');
+  });
+
+  it('editing the Code tab writes back to the styles buffer', () => {
+    useUiStore.setState({ rightTab: 'code' });
+    const { container } = render(<RightPanel />);
+    const view = EditorView.findFromDOM(container.querySelector('.cm-editor') as HTMLElement)!;
+    act(() => view.dispatch({ changes: { from: 0, insert: '/* edited */\n' } }));
+    expect(useDocumentStore.getState().styles).toBe('/* edited */\n' + sampleDocument().styles);
+  });
+
+  it('external buffer changes flow back into the Code tab', () => {
+    useUiStore.setState({ rightTab: 'code' });
+    const { container } = render(<RightPanel />);
+    act(() => useDocumentStore.getState().setStyles('#x { fill: pink; }'));
+    expect(container.querySelector('.cm-content')?.textContent).toContain('#x { fill: pink; }');
   });
 
   it('spotlights a selected transition row at its `transition` declaration', () => {

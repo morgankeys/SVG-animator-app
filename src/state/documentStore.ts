@@ -22,8 +22,15 @@ interface DocumentState extends Document {
   /** Buffer snapshots behind / ahead of the present (undo / redo stacks). */
   past: Document[];
   future: Document[];
+  /**
+   * Coalesce key of the most recent commit, so a run of edits sharing a key
+   * (e.g. one Code-tab typing session) collapses into a single undo step. Reset
+   * whenever a differently-keyed edit, undo, or redo intervenes.
+   */
+  lastCommitKey?: string;
   setMarkup: (markup: string) => void;
-  setStyles: (styles: string) => void;
+  /** `coalesceKey` groups consecutive edits into one undo step (e.g. Code-tab typing). */
+  setStyles: (styles: string, coalesceKey?: string) => void;
   setDocument: (document: Document) => void;
   /** Write a CSS property for an element (styles buffer; may assign an id in markup). */
   applyStyleEdit: (ref: ElementRef, property: string, value: string) => EditResult;
@@ -45,14 +52,21 @@ const HISTORY_LIMIT = 100;
 const buffers = ({ markup, styles }: Document): Document => ({ markup, styles });
 
 export const useDocumentStore = create<DocumentState>((set, get) => {
-  /** Apply new buffers, recording the present in the undo stack. No-ops record nothing. */
-  const commit = (next: Document) =>
+  /**
+   * Apply new buffers, recording the present in the undo stack. No-ops record
+   * nothing. When `coalesceKey` matches the previous commit's, the snapshot is
+   * NOT pushed — the earlier snapshot from this run already captures the
+   * pre-edit state, so the whole run undoes as one step.
+   */
+  const commit = (next: Document, coalesceKey?: string) =>
     set((s) => {
       if (next.markup === s.markup && next.styles === s.styles) return s;
+      const coalesce = coalesceKey !== undefined && coalesceKey === s.lastCommitKey;
       return {
         ...next,
-        past: [...s.past.slice(-(HISTORY_LIMIT - 1)), buffers(s)],
+        past: coalesce ? s.past : [...s.past.slice(-(HISTORY_LIMIT - 1)), buffers(s)],
         future: [],
+        lastCommitKey: coalesceKey,
       };
     });
 
@@ -60,8 +74,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => {
     ...sampleDocument(),
     past: [],
     future: [],
+    lastCommitKey: undefined,
     setMarkup: (markup) => commit({ markup, styles: get().styles }),
-    setStyles: (styles) => commit({ markup: get().markup, styles }),
+    setStyles: (styles, coalesceKey) => commit({ markup: get().markup, styles }, coalesceKey),
     setDocument: (document) => commit(buffers(document)),
     applyStyleEdit: (ref, property, value) => {
       const result = writeStyleDeclaration(buffers(get()), ref, property, value);
@@ -94,6 +109,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => {
         ...s.past[s.past.length - 1],
         past: s.past.slice(0, -1),
         future: [...s.future, buffers(s)],
+        lastCommitKey: undefined,
       }));
       return true;
     },
@@ -103,6 +119,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => {
         ...s.future[s.future.length - 1],
         future: s.future.slice(0, -1),
         past: [...s.past, buffers(s)],
+        lastCommitKey: undefined,
       }));
       return true;
     },

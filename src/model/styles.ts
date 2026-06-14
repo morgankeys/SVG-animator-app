@@ -7,12 +7,15 @@
  *   its output, so this is NOT the editing surface.
  * - parseStyles/serializeStyles: the canonical editing AST, parsed straight from
  *   the buffer so untouched raws (whitespace, comments) round-trip exactly
- *   (architecture invariant 3). While the buffer is plain CSS (Phases 1-7) this
- *   AST also matches what renders; the SCSS authoring layer revisits that in
- *   Phase 8.
+ *   (architecture invariant 3). The buffer is SCSS (Phase 8), so we parse it with
+ *   the postcss-scss syntax — plain CSS is a subset, so this stayed correct
+ *   through Phases 1-7 and now also tolerates `//` comments, `$variables`, and
+ *   nesting. The AST is for *editing*; what renders is `compileStyles` output.
+ *   Where an SCSS construct can't be safely rewritten, the cascade marks the
+ *   declaration non-editable (docs/css-engine.md) rather than clobbering it.
  */
 import { compileScss, isSassException } from '../lib/sass';
-import { parseCss, stringifyCss, createCssRule } from '../lib/postcss';
+import { parseScss, stringifyScss, createCssRule } from '../lib/postcss';
 import type { Root, Rule, Declaration } from '../lib/postcss';
 
 export interface StyleError {
@@ -40,14 +43,14 @@ export function compileStyles(scss: string): CompileResult {
   }
 }
 
-/** Parse CSS into the canonical editing AST. */
-export function parseStyles(css: string): Root {
-  return parseCss(css);
+/** Parse the SCSS styles buffer into the canonical editing AST. */
+export function parseStyles(scss: string): Root {
+  return parseScss(scss);
 }
 
 /** Serialize the AST back to the buffer. Exact round-trip for untouched nodes. */
 export function serializeStyles(ast: Root): string {
-  return stringifyCss(ast);
+  return stringifyScss(ast);
 }
 
 /**

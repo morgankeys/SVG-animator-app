@@ -7,9 +7,12 @@ import { getSandboxAnimations } from '../../sandbox/registry';
  * live Web Animation by pausing it and setting `currentTime`, so the rendered
  * frame always matches the playhead — scrubbing and playback share one path.
  *
- * Until the user engages a control, animations run freely (browser-driven). On
- * play we advance the playhead with requestAnimationFrame, looping at `totalMs`;
- * animations are re-fetched each frame so a mid-play frame reload is picked up.
+ * On play we advance the playhead with requestAnimationFrame, looping at
+ * `totalMs`; animations are re-fetched each frame so a mid-play frame reload is
+ * picked up. While we're NOT playing the animation runs freely (browser-driven,
+ * e.g. on load), and we let the playhead *follow* it — reading `currentTime`
+ * each frame — so the timeline mirrors what's on screen and pressing play
+ * resumes from there instead of snapping the animation back to a stale playhead.
  */
 export function usePlayback(totalMs: number) {
   const playing = useUiStore((s) => s.playing);
@@ -47,6 +50,28 @@ export function usePlayback(totalMs: number) {
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, [playing, totalMs, setPlayheadMs, applyFrame]);
+
+  // While paused/free-running, follow the live animation so the playhead tracks
+  // what the browser renders (and play resumes without a jump). No-op when no
+  // live animation exists yet (frame not loaded, or jsdom in tests).
+  useEffect(() => {
+    if (playing) return;
+    let frame = 0;
+    const tick = () => {
+      const [sample] = getSandboxAnimations();
+      if (sample != null) {
+        const raw = Number(sample.currentTime ?? 0);
+        const ms = totalMs > 0 ? ((raw % totalMs) + totalMs) % totalMs : 0;
+        if (ms !== headRef.current) {
+          headRef.current = ms;
+          setPlayheadMs(ms);
+        }
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [playing, totalMs, setPlayheadMs]);
 
   const play = useCallback(() => setPlaying(true), [setPlaying]);
   const pause = useCallback(() => setPlaying(false), [setPlaying]);

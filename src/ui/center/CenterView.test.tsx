@@ -28,4 +28,12 @@ describe('CenterView tabs', () => {
     expect(screen.getByTitle('Rendered document')).toBeInTheDocument();
     expect(screen.getByTestId('code-view')).toBeInTheDocument();
   });
+
+  it('shows the frame viewer (and neither canvas nor code) on Frames', () => {
+    render(<CenterView />);
+    fireEvent.click(screen.getByRole('button', { name: 'Frames' }));
+    expect(screen.queryByTitle('Rendered document')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('code-view')).not.toBeInTheDocument();
+    expect(screen.getByText(/No frames imported/)).toBeInTheDocument();
+  });
 });

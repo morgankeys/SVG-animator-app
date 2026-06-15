@@ -1,5 +1,6 @@
 import { SandboxFrame } from '../../sandbox/SandboxFrame';
 import { CodeTab } from './CodeTab';
+import { FramesView } from '../frames/FramesView';
 import { useUiStore } from '../../state/uiStore';
 import type { CenterTab } from '../../state/uiStore';
 
@@ -7,9 +8,10 @@ const tabs: Array<{ id: CenterTab; label: string }> = [
   { id: 'preview', label: 'Preview' },
   { id: 'code', label: 'Code' },
   { id: 'split', label: 'Split' },
+  { id: 'frames', label: 'Frames' },
 ];
 
-/** Center view: Preview / Code / Split. */
+/** Center view: Preview / Code / Split / Frames (imported SVG states). */
 export function CenterView() {
   const centerTab = useUiStore((s) => s.centerTab);
   const setCenterTab = useUiStore((s) => s.setCenterTab);
@@ -29,10 +31,16 @@ export function CenterView() {
           </button>
         ))}
       </header>
-      <div className={`panel-body canvas${centerTab === 'split' ? ' split' : ''}`}>
-        {centerTab !== 'code' && <SandboxFrame />}
-        {centerTab !== 'preview' && <CodeTab />}
-      </div>
+      {centerTab === 'frames' ? (
+        <div className="panel-body frames-view-body">
+          <FramesView />
+        </div>
+      ) : (
+        <div className={`panel-body canvas${centerTab === 'split' ? ' split' : ''}`}>
+          {centerTab !== 'code' && <SandboxFrame />}
+          {centerTab !== 'preview' && <CodeTab />}
+        </div>
+      )}
     </section>
   );
 }

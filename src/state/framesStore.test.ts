@@ -18,6 +18,20 @@ describe('framesStore', () => {
     expect(useFramesStore.getState().frames.map((f) => f.id)).toEqual(['b']);
   });
 
+  it('reorders frames left and right, clamping at the ends', () => {
+    useFramesStore.getState().addFrames([frame('a'), frame('b'), frame('c')]);
+    const ids = () => useFramesStore.getState().frames.map((f) => f.id);
+
+    useFramesStore.getState().moveFrame('b', 'left');
+    expect(ids()).toEqual(['b', 'a', 'c']);
+    useFramesStore.getState().moveFrame('b', 'left'); // already first → no-op
+    expect(ids()).toEqual(['b', 'a', 'c']);
+    useFramesStore.getState().moveFrame('c', 'right'); // already last → no-op
+    expect(ids()).toEqual(['b', 'a', 'c']);
+    useFramesStore.getState().moveFrame('a', 'right');
+    expect(ids()).toEqual(['b', 'c', 'a']);
+  });
+
   it('clears all frames', () => {
     useFramesStore.getState().addFrames([frame('a')]);
     useFramesStore.getState().clearFrames();

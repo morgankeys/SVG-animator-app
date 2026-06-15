@@ -41,7 +41,7 @@ Three tabs: **Preview · Code · Split**.
 - **Read-only** in this consolidated view, but elements are **collapsible**.
 - Good formatting + **syntax highlighting** (CodeMirror 6).
 
-> Note: per-panel Code tabs (right panel) *are* the editable code surfaces in later phases; this center Code tab is the read-only "what will ship" view.
+> Note: the per-panel Code tab (right panel) *is* the editable code surface (Phase 8.1, done); this center Code tab stays the read-only "what will ship" view.
 
 ### Split tab
 
@@ -63,12 +63,14 @@ Two tabs: **Rules · Code**.
 
 - Figma-like **UI controls** reflecting all potential CSS for the selection (grouping in [`css-engine.md`](css-engine.md): Layout, Transform, Appearance, Effects, Animation).
 - Controls reflect the **cascade-resolved winning value**; competing/duplicative rules show an **inline warning label** next to the control.
+- **Read-only degradation (Phase 8.2):** when the winning value can't be safely written back (inline `style` attribute, an SCSS expression like `$var`/`#{…}`, or a nested/`&` SCSS rule), the control disables its input, still shows the value, and surfaces a badge + tooltip pointing the user to the Code tab (or markup, for inline). See "Non-round-trippable cases" in [`css-engine.md`](css-engine.md).
 - Some controls own **markup attributes** (SVG geometry), others own **CSS declarations** — be explicit per control about which buffer it writes to.
 - When a row/stop is selected in the Timeline, this tab focuses the relevant `@keyframes` (and the specific stop block).
 
 ### Code tab
 
-- The **editable** code surface (later phases) and the source of truth for styles: syntax-highlighted SCSS/CSS for the current context.
+- The **editable** SCSS code surface (Phase 8.1, done) and the source of truth for styles: edits write straight back to the `styles` buffer, which drives the compile pipeline and re-projects every panel. External buffer changes (other panels, undo) flow back into the editor.
+- Syntax-highlighted SCSS (`@codemirror/lang-sass`); a run of consecutive keystrokes coalesces into one store-undo step (CodeMirror keeps its own in-editor history).
 - Proper formatting + syntax highlighting.
 
 ## Shared selection model

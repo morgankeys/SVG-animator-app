@@ -15,8 +15,8 @@ CSS AST (Root → Rule/AtRule → Declaration)   // canonical model for editing
 ```
 
 - **SCSS is the authoring source of truth.** CSS is its compiled output.
-- For **MVP (Phases 1–7) we author plain CSS** (SCSS compiles CSS to itself, so the pipeline is identical). The SCSS-specific authoring layer and its round-trip limits land in **Phase 8**.
-- **The editing AST is parsed from the buffer directly** (`parseStyles`), never from sass output — sass reformats, which would destroy the user's formatting on write-back. The compiled CSS exists only to render and (later) to inspect.
+- Phases 1–7 authored within the plain-CSS subset (SCSS compiles CSS to itself, so the pipeline was identical). **Phase 8** turned the right-panel Code tab into an editable SCSS surface and added the round-trip limits below.
+- **The editing AST is parsed from the buffer directly** (`parseStyles`), never from sass output — sass reformats, which would destroy the user's formatting on write-back. Since Phase 8 the buffer is parsed with the **postcss-scss** syntax, so real SCSS (`//` comments, `$variables`, nesting, `&`) round-trips byte-exact through in-place mutations; plain CSS is a subset, so nothing earlier regressed. The compiled CSS exists only to render and to inspect.
 
 ## Resolving what the Rules panel shows (read path)
 
@@ -62,11 +62,13 @@ When the UI must create a new declaration, where does it go? Implemented in Phas
 
 ### Non-round-trippable cases (mark `editable: false`)
 
-- The winning value comes from an SCSS construct that doesn't map to a single CSS declaration we can rewrite (variable interpolation, mixin output, computed expression) — Phase 8.
-- The value uses `!important` in a way that complicates precedence — show warning, allow but flag.
-- The selector matches via complex combinators we can't safely target for a *new* per-element rule.
+Implemented in Phase 8.2 (`cascade.ts` sets `EffectiveProperty.uneditableReason`):
 
-In all these, the control becomes read-only with an inline warning explaining why, and points the user to the Code tab.
+- **`scss-value`** — the winning value carries a SCSS variable reference (`$x`) or interpolation (`#{…}`), so its source text isn't its rendered value; rewriting it would clobber the expression. (Plain CSS functions — `calc`, `rgb`, `var`, `url` — are *not* flagged: they round-trip as ordinary values. Bare SCSS function calls like `darken(...)` are a known gap, deferred.)
+- **`scss-nested`** — the declaration sits in a nested rule or one using the `&` parent selector, so its written selector is relative and can't be safely retargeted.
+- **`inline`** — the winner is the element's `style` attribute (markup-owned, pre-Phase 8).
+
+In all these the Rules control becomes read-only with a badge + tooltip explaining why and pointing to the Code tab (or markup, for inline). The winning value is still shown — honest about its origin rather than hidden. `!important` and complex-combinator targeting remain finer-grained follow-ups.
 
 ## Rules-panel grouping (UI model)
 
@@ -110,7 +112,7 @@ TimelineRow {
 }
 ```
 
-Rows are a **pure projection** of the buffers (`model/animation.ts` → `buildTimelineRows`), surfaced to the UI by the `useTimelineRows` hook so both the Timeline strip and the right-panel linking share one derivation. Which animation/transition applies to which element is a **cascade** question — resolved via `resolveEffectiveProperties`, never by mapping a rule directly to an element. Stops carry a `TextRange` (rather than an opaque ref) so the Code tab can spotlight the exact block; those offsets come from PostCSS `source` positions and are valid against the **plain-CSS** styles buffer (Phase 8 SCSS must recompute against the authoring buffer).
+Rows are a **pure projection** of the buffers (`model/animation.ts` → `buildTimelineRows`), surfaced to the UI by the `useTimelineRows` hook so both the Timeline strip and the right-panel linking share one derivation. Which animation/transition applies to which element is a **cascade** question — resolved via `resolveEffectiveProperties`, never by mapping a rule directly to an element. Stops carry a `TextRange` (rather than an opaque ref) so the Code tab can spotlight the exact block; those offsets come from PostCSS `source` positions and, since Phase 8 parses the buffer with postcss-scss, map directly onto the **authoring (SCSS) buffer** the Code tab shows — no recompilation needed.
 
 **Transitions (Phase 7)** mirror the animation pipeline: `resolveElementTransitions` parses the `transition` shorthand per comma-segment (paren-aware) and lets longhands override, exactly like `resolveElementAnimations`; `transition-property` defaults to `all`, and `none` (shorthand or property entry) is skipped. A transition has no `@keyframes`, so it links to its defining `transition` declaration via `declarationRange` (resolved from the cascade winner's `source` by a rule/decl walk that matches `cascade.ts` indexing) instead of `keyframesRange`/stops. Note transitions only spawn a live `Animation` when a property actually changes, so they don't appear in `getSandboxAnimations()` at rest — the row is a static projection, not a playable track.
 

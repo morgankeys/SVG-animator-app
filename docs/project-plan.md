@@ -95,8 +95,8 @@ The single most important phase. Establishes buffers-as-truth + the sandbox rend
 
 ## Phase 8 — SCSS authoring layer
 
-- [ ] **8.1 SCSS source-of-truth.** Right-panel Code tab edits SCSS; compile pipeline drives everything.
-- [ ] **8.2 Round-trip limits.** Mark declarations originating from non-round-trippable SCSS constructs as `editable: false`; Rules controls degrade to read-only-with-warning per [`css-engine.md`](css-engine.md).
+- [x] **8.1 SCSS source-of-truth.** Right-panel Code tab edits SCSS; compile pipeline drives everything. — Editing AST now parses the buffer with the postcss-scss syntax (`parseScss`/`stringifyScss`), so real SCSS (`//`, `$vars`, nesting, `&`) round-trips byte-exact; the Code tab is an editable SCSS surface (`CodeView` `onChange` + `@codemirror/lang-sass`) writing straight to the buffer, which drives compile/render and re-projects every panel. A coalesce key on `setStyles` collapses a typing run into one store-undo step (CodeMirror keeps its own in-editor history).
+- [x] **8.2 Round-trip limits.** Mark declarations originating from non-round-trippable SCSS constructs as `editable: false`; Rules controls degrade to read-only-with-warning per [`css-engine.md`](css-engine.md). — Cascade flags a winner uneditable with a `uneditableReason` when its value carries a SCSS expression (`$var`/`#{…}`) or it sits in a nested/`&` rule (CSS functions like `calc`/`rgb`/`var` stay editable); the Rules row disables the input and shows a badge + tooltip pointing to the Code tab. Inline-style winners fold into the same channel.
   - Done when: editing SCSS reflects everywhere; UI honestly flags what it can't safely write back.
 
 ---

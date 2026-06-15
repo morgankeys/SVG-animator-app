@@ -3,9 +3,10 @@ import { EditorState, StateEffect, StateField, type Extension } from '@codemirro
 import { Decoration, type DecorationSet } from '@codemirror/view';
 import { html } from '@codemirror/lang-html';
 import { css } from '@codemirror/lang-css';
+import { sass } from '@codemirror/lang-sass';
 import { oneDark } from '@codemirror/theme-one-dark';
 
-export type CodeLanguage = 'html' | 'css';
+export type CodeLanguage = 'html' | 'css' | 'scss';
 
 /** A character span to spotlight in a read-only view (Timeline linking, 6.4). */
 export interface HighlightRange {
@@ -16,6 +17,7 @@ export interface HighlightRange {
 const languages: Record<CodeLanguage, () => Extension> = {
   html, // handles embedded <style> CSS highlighting too
   css,
+  scss: () => sass({ indented: false }), // SCSS syntax (`//`, `$vars`, nesting, `&`)
 };
 
 // A single mark decoration spotlights the linked range; mapped through edits.
@@ -43,31 +45,51 @@ const highlightTheme = EditorView.baseTheme({
   '.cm-range-highlight': { backgroundColor: 'rgba(79, 156, 249, 0.25)' },
 });
 
+export interface EditorOptions {
+  /** When set, the view is editable and fires this on every document change. */
+  onChange?: (value: string) => void;
+}
+
 /**
- * Read-only CodeMirror 6 view: syntax highlighting + fold gutter (via
- * basicSetup) on a dark theme, plus a range-highlight field for Timeline
- * linking. Editable surfaces arrive in later phases.
+ * CodeMirror 6 view: syntax highlighting + fold gutter (via basicSetup) on a
+ * dark theme, plus a range-highlight field for Timeline linking. Read-only by
+ * default; pass `onChange` to make it an editable authoring surface (Phase 8 —
+ * the SCSS Code tab writes back through this callback). CodeMirror keeps its own
+ * undo history for the editable case.
  */
+export function createEditor(
+  parent: HTMLElement,
+  doc: string,
+  language: CodeLanguage,
+  options: EditorOptions = {},
+): EditorView {
+  const editable = Boolean(options.onChange);
+  const extensions: Extension[] = [
+    basicSetup,
+    languages[language](),
+    oneDark,
+    highlightField,
+    highlightTheme,
+  ];
+  if (editable) {
+    extensions.push(
+      EditorView.updateListener.of((update) => {
+        if (update.docChanged) options.onChange!(update.state.doc.toString());
+      }),
+    );
+  } else {
+    extensions.push(EditorState.readOnly.of(true), EditorView.editable.of(false));
+  }
+  return new EditorView({ parent, state: EditorState.create({ doc, extensions }) });
+}
+
+/** Read-only convenience wrapper around {@link createEditor}. */
 export function createReadOnlyEditor(
   parent: HTMLElement,
   doc: string,
   language: CodeLanguage,
 ): EditorView {
-  return new EditorView({
-    parent,
-    state: EditorState.create({
-      doc,
-      extensions: [
-        basicSetup,
-        languages[language](),
-        oneDark,
-        highlightField,
-        highlightTheme,
-        EditorState.readOnly.of(true),
-        EditorView.editable.of(false),
-      ],
-    }),
-  });
+  return createEditor(parent, doc, language);
 }
 
 /** Replace the entire document of an existing view (e.g. buffers changed). */

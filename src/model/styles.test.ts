@@ -62,6 +62,23 @@ describe('parseStyles / serializeStyles', () => {
       '/* header */\n#ball {\n  fill: green; /* trailing */\n  opacity: 1;\n}\n',
     );
   });
+
+  it('round-trips SCSS-only syntax that plain CSS parsing rejects (Phase 8)', () => {
+    // `//` comments, `$variables`, nesting, and `&` would throw under postcss.parse.
+    const source =
+      '// theme\n$accent: #4f9cf9;\n#ball {\n  fill: $accent;\n  &:hover { opacity: 0.5; }\n}\n';
+    expect(serializeStyles(parseStyles(source))).toBe(source);
+  });
+
+  it('mutates a plain declaration in place without disturbing neighbouring SCSS', () => {
+    const source = '$accent: #4f9cf9;\n#ball {\n  fill: $accent;\n  opacity: 1;\n}\n';
+    const ast = parseStyles(source);
+    const rule = ast.first?.next() as Rule;
+    (rule.last as Declaration).value = '0.5';
+    expect(serializeStyles(ast)).toBe(
+      '$accent: #4f9cf9;\n#ball {\n  fill: $accent;\n  opacity: 0.5;\n}\n',
+    );
+  });
 });
 
 function elementFrom(markup: string, selector: string): Element {

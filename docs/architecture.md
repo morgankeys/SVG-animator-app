@@ -105,4 +105,4 @@ src/
 ## Open questions (track in project plan, don't pre-decide here)
 
 - ~~Exact write-target strategy~~ — **resolved in Phase 4**: last top-level exact-`#id` rule, else append a fresh one (auto-assigning an id in markup when needed). See "Write-target rule strategy" in [`css-engine.md`](css-engine.md).
-- SCSS round-trip depth: how much SCSS (variables, nesting, mixins) is editable from the UI vs. read-only-with-warning. Phased in Phase 8.
+- ~~SCSS round-trip depth~~ — **resolved in Phase 8**: the editing AST parses the buffer with the postcss-scss syntax, so plain CSS and the round-trippable SCSS subset edit in place; a winning declaration is marked read-only-with-warning when its value is a SCSS expression (`$var`/`#{…}`) or it lives in a nested/`&` rule. CSS functions (`calc`/`rgb`/`var`) stay editable. See "Non-round-trippable cases" in [`css-engine.md`](css-engine.md).

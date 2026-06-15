@@ -161,4 +161,21 @@ describe('documentStore — undo/redo', () => {
     for (let i = 0; i < 120; i++) useDocumentStore.getState().setStyles(`/* ${i} */`);
     expect(useDocumentStore.getState().past).toHaveLength(100);
   });
+
+  it('coalesces a run of same-keyed edits into one undo step (Code-tab typing)', () => {
+    const start = sampleDocument().styles;
+    useDocumentStore.getState().setStyles('a {}', 'code');
+    useDocumentStore.getState().setStyles('ab {}', 'code');
+    useDocumentStore.getState().setStyles('abc {}', 'code');
+    expect(useDocumentStore.getState().past).toHaveLength(1);
+    expect(useDocumentStore.getState().undo()).toBe(true);
+    expect(current().styles).toBe(start); // one undo restores the whole run
+  });
+
+  it('an intervening differently-keyed edit ends the coalescing run', () => {
+    useDocumentStore.getState().setStyles('a {}', 'code');
+    useDocumentStore.getState().applyStyleEdit('0/0/1', 'fill', 'tomato'); // no key
+    useDocumentStore.getState().setStyles('b {}', 'code'); // new run → new step
+    expect(useDocumentStore.getState().past).toHaveLength(3);
+  });
 });

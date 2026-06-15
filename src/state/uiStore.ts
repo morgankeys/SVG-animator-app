@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type CenterTab = 'preview' | 'code' | 'split';
+export type CenterTab = 'preview' | 'code' | 'split' | 'frames';
 export type RightTab = 'rules' | 'code';
 
 /** Transient UI state (active tabs, timeline playhead, later: zoom). Never document data. */

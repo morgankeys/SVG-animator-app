@@ -103,8 +103,8 @@ The single most important phase. Establishes buffers-as-truth + the sandbox rend
 
 ## Phase 9 — SVG import & frame model
 
-- [ ] **9.1 Import pipeline.** File picker / drag-drop SVGs → `Frame`s (parsed). (File System Access API + fallback.)
-- [ ] **9.2 Frame viewer.** Side-by-side frames with element trees; set frame order.
+- [x] **9.1 Import pipeline.** File picker / drag-drop SVGs → `Frame`s (parsed). (File System Access API + fallback.) — `model/frames.ts` (pure): `parseSvgToFrame` validates (empty / XML parse error / non-`<svg>` root, surfaced as errors) and projects the tree via `parseMarkup` (`<defs>` excluded, consistent with the Elements panel); `importSvgFiles` reads File objects (FileReader fallback for older jsdom). Frames live in a dedicated `framesStore` (separate from the undoable buffers; Phase 12 will fold into `Document.meta`). `FramesPanel` (left panel, below Elements) imports via the File System Access API with a hidden-`<input>` fallback + drag-drop, lists frames with remove, and shows per-file import errors. Side-by-side viewer is 9.2.
+- [x] **9.2 Frame viewer.** Side-by-side frames with element trees; set frame order. — New center "Frames" tab (`ui/center/CenterView.tsx` + `CenterTab` `'frames'`) renders `FramesView`: one card per imported frame with an SVG thumbnail (`<img>` data URL — a clean style/script boundary), a read-only element tree (`FrameTree`, mirrors the Elements panel's tag + #id/.class hints, no selection/editing), and ← → / ✕ controls. `framesStore.moveFrame(id, 'left'|'right')` sets the frame (timeline) order, clamped at the ends. Import stays in the left `FramesPanel` (9.1); the viewer is the read surface.
 
 ---
 

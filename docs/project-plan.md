@@ -112,7 +112,7 @@ The single most important phase. Establishes buffers-as-truth + the sandbox rend
 
 Sub-phases from [`svg-interpolation.md`](svg-interpolation.md), each independently reviewable:
 
-- [ ] **10.1 Auto-matcher** (pure) + fixture tests.
+- [x] **10.1 Auto-matcher** (pure) + fixture tests. — `model/match.ts`: `autoMatch` folds frames in sequentially, greedily assigning each frame's nodes to the best-scoring same-tag representative (tag is a hard filter; scoring blends structural position, normalized id/class stems, attribute/geometry similarity, uniqueness bonus). `normalizeStem` strips trailing frame indices/suffixes. Leftovers seed fresh correspondences (frame-specific elements → `unmatched`). Fixture suite covers the id-suffix case, hard filter, geometry-distinguished siblings, appearance, three-frame folding.
 - [ ] **10.2 Manual mapping UI** (link/unlink/flag unmatched).
 - [ ] **10.3 ID refactor** + reference rewrite.
 - [ ] **10.4 `@keyframes` generation** + wire into Timeline.

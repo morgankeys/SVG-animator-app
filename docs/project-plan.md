@@ -103,7 +103,7 @@ The single most important phase. Establishes buffers-as-truth + the sandbox rend
 
 ## Phase 9 — SVG import & frame model
 
-- [ ] **9.1 Import pipeline.** File picker / drag-drop SVGs → `Frame`s (parsed). (File System Access API + fallback.)
+- [x] **9.1 Import pipeline.** File picker / drag-drop SVGs → `Frame`s (parsed). (File System Access API + fallback.) — `model/frames.ts` (pure): `parseSvgToFrame` validates (empty / XML parse error / non-`<svg>` root, surfaced as errors) and projects the tree via `parseMarkup` (`<defs>` excluded, consistent with the Elements panel); `importSvgFiles` reads File objects (FileReader fallback for older jsdom). Frames live in a dedicated `framesStore` (separate from the undoable buffers; Phase 12 will fold into `Document.meta`). `FramesPanel` (left panel, below Elements) imports via the File System Access API with a hidden-`<input>` fallback + drag-drop, lists frames with remove, and shows per-file import errors. Side-by-side viewer is 9.2.
 - [ ] **9.2 Frame viewer.** Side-by-side frames with element trees; set frame order.
 
 ---

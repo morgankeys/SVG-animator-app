@@ -609,3 +609,60 @@ body {
   color: #e9c46a;
   border-bottom: 1px solid var(--panel-border);
 }
+
+/* Left panel stacks the Elements tree above the Frames import (Phase 9). */
+.left-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.left-panel > .panel {
+  height: auto;
+  min-height: 0;
+}
+
+.left-panel > .panel:first-child {
+  flex: 1 1 auto;
+}
+
+.frames-panel {
+  flex: 0 0 auto;
+  max-height: 45%;
+  border-top: 1px solid var(--panel-border);
+}
+
+.frames-dropzone {
+  border: 1px dashed transparent;
+}
+
+.frames-dropzone.drag-over {
+  border-color: var(--accent);
+  background: rgba(79, 156, 249, 0.08);
+}
+
+.frames-empty {
+  margin: 0;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.frames-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.frames-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.frames-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

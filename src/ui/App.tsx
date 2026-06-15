@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { ElementsPanel } from './panels/ElementsPanel';
+import { FramesPanel } from './frames/FramesPanel';
 import { RightPanel } from './panels/RightPanel';
 import { CenterView } from './center/CenterView';
 import { Timeline } from './center/Timeline';
@@ -15,6 +16,7 @@ export function App() {
     <div className="app-shell">
       <aside className="left-panel">
         <ElementsPanel />
+        <FramesPanel />
       </aside>
       <main className="center-area">
         <CenterView />

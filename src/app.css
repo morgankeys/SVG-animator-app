@@ -994,3 +994,22 @@ body {
   font-size: 11px;
   color: #7fd07f;
 }
+
+.corr-issues {
+  margin: 0;
+  padding: 4px 12px 8px;
+  list-style: none;
+  font-size: 11px;
+}
+
+.corr-issue {
+  padding: 1px 0;
+}
+
+.corr-issue.warning {
+  color: var(--warn, #e0a030);
+}
+
+.corr-issue.error {
+  color: #f08080;
+}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useInterpolationStore } from '../../state/interpolationStore';
 import type { Frame } from '../../model/frames';
 import type { Correspondence } from '../../model/match';
+import { validateMapping } from '../../model/validate';
 import { correspondenceColor } from './correspondenceColor';
 
 /**
@@ -17,6 +18,7 @@ export function CorrespondenceList({ frames }: { frames: Frame[] }) {
   if (!matched) return null;
 
   const unmatched = correspondences.filter((c) => c.status === 'unmatched').length;
+  const issues = validateMapping(frames, correspondences);
 
   return (
     <div className="corr-list">
@@ -24,6 +26,15 @@ export function CorrespondenceList({ frames }: { frames: Frame[] }) {
         <span>Correspondences ({correspondences.length})</span>
         {unmatched > 0 && <span className="corr-warn">⚠ {unmatched} unmatched</span>}
       </header>
+      {issues.length > 0 && (
+        <ul className="corr-issues" aria-label="Mapping issues">
+          {issues.map((issue, i) => (
+            <li key={i} className={`corr-issue ${issue.severity}`}>
+              {issue.severity === 'error' ? '✕' : '⚠'} {issue.message}
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="corr-list-rows">
         {correspondences.map((corr) => (
           <CorrespondenceRow key={corr.id} corr={corr} frames={frames} />

@@ -17,6 +17,7 @@
  * be placed yet — surfaced as a warning rather than silently dropped.
  */
 import { refactorFrameIds } from './refactor';
+import { validateReferences } from './validate';
 import type { Frame } from './frames';
 import type { ElementNode, ElementRef } from './markup';
 import type { Correspondence } from './match';
@@ -72,7 +73,7 @@ interface Track {
  */
 export function generateInterpolation(
   frames: Frame[],
-  correspondences: Correspondence[],
+  rawCorrespondences: Correspondence[],
   options: GenerateOptions = {},
 ): GenerateResult {
   const warnings: string[] = [];
@@ -82,6 +83,10 @@ export function generateInterpolation(
 
   const base = frames[0];
   const frameTrees = frames.map((f) => indexByRef(f.tree));
+
+  // Conflicting canonical ids would produce duplicate selectors/@keyframes
+  // names; disambiguate so the output stays valid, and say we did (10.5).
+  const correspondences = dedupeCanonicalIds(rawCorrespondences, warnings);
 
   // Unified markup: the base frame with canonical ids applied + references fixed.
   const refactored = refactorFrameIds(base, correspondences);
@@ -111,7 +116,34 @@ export function generateInterpolation(
     warnings.push('No animatable differences found across the frames.');
   }
 
+  // Reference integrity: the id rewrite shouldn't have left any dangling
+  // url(#…)/href references in the unified markup (10.5).
+  for (const issue of validateReferences(refactored.markup)) warnings.push(issue.message);
+
   return { markup: refactored.markup, styles, warnings };
+}
+
+/**
+ * Ensure canonical ids are unique so selectors and `@keyframes` names don't
+ * collide. Duplicates (only possible after a manual rename) are suffixed -2, -3…
+ * and a warning is recorded.
+ */
+function dedupeCanonicalIds(
+  correspondences: Correspondence[],
+  warnings: string[],
+): Correspondence[] {
+  const used = new Set<string>();
+  return correspondences.map((c) => {
+    if (!used.has(c.id)) {
+      used.add(c.id);
+      return c;
+    }
+    let id = c.id;
+    for (let n = 2; used.has(id); n++) id = `${c.id}-${n}`;
+    used.add(id);
+    warnings.push(`Canonical id "${c.id}" was duplicated; renamed one to "${id}" to keep output valid.`);
+    return { ...c, id };
+  });
 }
 
 /**

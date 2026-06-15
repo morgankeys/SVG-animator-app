@@ -45,39 +45,63 @@ function MappingToolbar({ frames }: { frames: Frame[] }) {
   const reset = useInterpolationStore((s) => s.reset);
   const linkPicks = useInterpolationStore((s) => s.linkPicks);
   const clearPicks = useInterpolationStore((s) => s.clearPicks);
+  const generate = useInterpolationStore((s) => s.generate);
   const matched = useInterpolationStore((s) => s.matched);
   const pickCount = useInterpolationStore((s) => Object.keys(s.picks).length);
+  const warnings = useInterpolationStore((s) => s.warnings);
+  const generated = useInterpolationStore((s) => s.generated);
 
   return (
-    <div className="mapping-toolbar">
-      <button type="button" className="mapping-btn primary" onClick={() => runAutoMatch(frames)}>
-        {matched ? 'Re-run auto-match' : 'Auto-match'}
-      </button>
-      {matched && (
-        <>
-          <button
-            type="button"
-            className="mapping-btn"
-            disabled={pickCount < 2}
-            onClick={() => linkPicks()}
-          >
-            Link selected ({pickCount})
-          </button>
-          <button
-            type="button"
-            className="mapping-btn"
-            disabled={pickCount === 0}
-            onClick={() => clearPicks()}
-          >
-            Clear picks
-          </button>
-          <button type="button" className="mapping-btn" onClick={() => reset()}>
-            Clear mapping
-          </button>
-          <span className="mapping-hint">
-            Pick one node per frame, then Link to map them together.
-          </span>
-        </>
+    <div className="mapping-toolbar-wrap">
+      <div className="mapping-toolbar">
+        <button type="button" className="mapping-btn primary" onClick={() => runAutoMatch(frames)}>
+          {matched ? 'Re-run auto-match' : 'Auto-match'}
+        </button>
+        {matched && (
+          <>
+            <button
+              type="button"
+              className="mapping-btn"
+              disabled={pickCount < 2}
+              onClick={() => linkPicks()}
+            >
+              Link selected ({pickCount})
+            </button>
+            <button
+              type="button"
+              className="mapping-btn"
+              disabled={pickCount === 0}
+              onClick={() => clearPicks()}
+            >
+              Clear picks
+            </button>
+            <button type="button" className="mapping-btn" onClick={() => reset()}>
+              Clear mapping
+            </button>
+            <button
+              type="button"
+              className="mapping-btn primary"
+              disabled={frames.length < 2}
+              onClick={() => generate(frames)}
+              title="Generate unified markup + @keyframes and load it into the editor"
+            >
+              Generate animation →
+            </button>
+            <span className="mapping-hint">
+              Pick one node per frame, then Link to map them together.
+            </span>
+          </>
+        )}
+      </div>
+      {generated && warnings.length > 0 && (
+        <ul className="mapping-warnings" aria-label="Generation warnings">
+          {warnings.map((w, i) => (
+            <li key={i}>⚠ {w}</li>
+          ))}
+        </ul>
+      )}
+      {generated && warnings.length === 0 && (
+        <p className="mapping-ok">✓ Generated — loaded into the editor (Preview/Timeline).</p>
       )}
     </div>
   );

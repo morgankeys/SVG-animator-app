@@ -105,4 +105,18 @@ describe('FramesView — correspondence mapping (10.2)', () => {
     fireEvent.blur(input);
     expect(useInterpolationStore.getState().correspondences.some((c) => c.id === 'orb')).toBe(true);
   });
+
+  it('generates the unified document into the buffers and switches to Preview', async () => {
+    const { useDocumentStore } = await import('../../state/documentStore');
+    const { useUiStore } = await import('../../state/uiStore');
+    useFramesStore.setState({ frames: [frame('a', 'a.svg', A), frame('b', 'b.svg', B)] });
+    render(<FramesView />);
+    fireEvent.click(screen.getByRole('button', { name: 'Auto-match' }));
+    fireEvent.click(screen.getByRole('button', { name: /Generate animation/ }));
+
+    const doc = useDocumentStore.getState();
+    expect(doc.markup).toContain('id="ball"');
+    expect(doc.styles).toContain('@keyframes ball-frames');
+    expect(useUiStore.getState().centerTab).toBe('preview');
+  });
 });

@@ -967,3 +967,30 @@ body {
   padding: 0 4px;
   font-size: 10px;
 }
+
+.mapping-toolbar-wrap {
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.mapping-toolbar-wrap .mapping-toolbar {
+  border-bottom: none;
+}
+
+.mapping-warnings {
+  margin: 0;
+  padding: 4px 12px 8px;
+  list-style: none;
+  font-size: 11px;
+  color: var(--warn, #e0a030);
+}
+
+.mapping-warnings li {
+  padding: 1px 0;
+}
+
+.mapping-ok {
+  margin: 0;
+  padding: 4px 12px 8px;
+  font-size: 11px;
+  color: #7fd07f;
+}

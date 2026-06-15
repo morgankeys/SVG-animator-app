@@ -30,7 +30,13 @@ export interface MatchFrame {
 /** Which node within a frame a correspondence points at (an `ElementRef`). */
 export type NodePath = ElementRef;
 
-export type CorrespondenceStatus = 'auto' | 'manual' | 'unmatched';
+/**
+ * `auto`/`manual`: a confident match (matcher- or user-made). `unmatched`: a
+ * node the matcher couldn't confidently place — awaiting the user's decision.
+ * `frame-specific`: the user has confirmed an element intentionally appears in
+ * only some frames (animate opacity/visibility, not a mapping gap).
+ */
+export type CorrespondenceStatus = 'auto' | 'manual' | 'unmatched' | 'frame-specific';
 
 /**
  * One set of nodes — at most one per frame — judged to be the same element
